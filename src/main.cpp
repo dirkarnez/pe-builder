@@ -95,13 +95,80 @@ int main()
 	nt_h.OptionalHeader.NumberOfRvaAndSizes					= 0x00000010;// leave it
 
 
+	/*****************************WIP START*******************************/
+
+	// https://chromium.googlesource.com/chromium/src/base/+/master/win/pe_image.h
+
+	struct ImportDirectoryTableEntry {
+		uint32_t ImportLookupTableRVA;
+		uint32_t TimeDateStamp;
+		uint32_t ForwarderChain;
+		uint32_t NameRVA;
+		uint32_t ImportAddressTableRVA;
+	};
+ PIMAGE_IMPORT_DESCRIPTOR import = GetFirstImportChunk();
+ import->FirstThunk
+_thunk_entry->u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
+	        PIMAGE_THUNK_DATA name_table;
+                                 PIMAGE_THUNK_DATA iat;
+
+								  sizeof(IMAGE_IMPORT_DESCRIPTOR);
+	/****************************WIP END ********************************/
+
+
+
 	// import kernel32
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = 0x00000028;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = 0x00003034;
 
-	
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].Size = 0x00000020;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].VirtualAddress = 0x00003000;
+
+
+
+
+
+    // IMAGE_IMPORT_DESCRIPTOR* importTable = (IMAGE_IMPORT_DESCRIPTOR*)
+    //         (nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress + 
+	// 		nt_h.OptionalHeader.ImageBase);
+
+	ULONGLONG;
+	
+	// import kernel32.dll
+	IMAGE_IMPORT_DESCRIPTOR import_descripter;
+	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	import_descripter.OriginalFirstThunk = NULL; // Replace with rva to this->thunk_entry when outputting
+	import_descripter.TimeDateStamp = -1;
+	import_descripter.ForwarderChain = -1;
+	import_descripter.Name = NULL;
+	import_descripter.FirstThunk = rva; // PE Loader with patchup address at rva to become the address of the import, awesome!
+
+	IMAGE_THUNK_DATA64  _thunk_entry;
+	_thunk_entry.u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
+
+	char* _library_name = new char[strlen("KERNEL32.dll")+1];
+	strcpy(_library_name, "KERNEL32.dll");
+
+	_thunk_entry.u1.AddressOfData = NULL; // Replace with rva to import_by_name
+	
+	IMAGE_IMPORT_BY_NAME* _import_by_name = (IMAGE_IMPORT_BY_NAME*) new char[strlen("GetStdHandle")+1+sizeof(WORD)];
+	_import_by_name->Hint = 0; // Not necessary
+	size_t _import_by_name_len = strlen("GetStdHandle")+1+sizeof(WORD);
+	strcpy((char*)(&_import_by_name->Name), "GetStdHandle");
+
+	// import_descripter.Name[0] = 'K';
+	// import_descripter.Name[0] = 'K';
+	
+	// "KERNEL32.dll";
+	IMAGE_THUNK_DATA64 importAddressTable = import_descripter.FirstThunk;
+
+
+
+
+
+
+
+
 
 	// Initializing Section [ Code ]
 	IMAGE_SECTION_HEADER	code_section;
