@@ -8,7 +8,12 @@ project(pe-builder)
 SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
 
 add_executable(${PROJECT_NAME}
-    "src/main.cpp")
+"src/main.cpp"
+"src/pe.cpp"
+"src/pebuilder.cpp"
+"src/pe.h"
+"src/pebuilder.h"
+)
 
 # target_link_libraries(${PROJECT_NAME} 
 #     sds)
