@@ -1,4 +1,12 @@
 #include <iostream>
+#include <Windows.h>
+#include <fstream>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+#include <memory>
+#include <algorithm>
+#include <iterator>
 
 #include "pe.h"
 #include "pebuilder.h"
@@ -16,7 +24,9 @@ int main()
                .with("PragmaSoft")
                .as_a("Consultant")
                .earning("10e6");
-               
+
     cout << p << endl;
+
+    cout << sizeof(IMAGE_DOS_HEADER) << endl;
     return EXIT_SUCCESS;
 }

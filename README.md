@@ -1,6 +1,10 @@
 pe-builder
 ==========
 
+### Truth
+- (target address) 0x401000 - (load address)0x400000  = (RVA)0x1000
+  - To convert an RVA to an actual address, simply reverse the process: add the RVA to the actual load address to find the actual memory address.
+- DataDirectory[dwEntry].VirtualAddress is rva
 
 ### Reference
 - [base/pe_image.cc at d7453874fda54fe2701fea6b108abf9a29a9b990 · yue/base](https://github.com/yue/base/blob/d7453874fda54fe2701fea6b108abf9a29a9b990/win/pe_image.cc)
@@ -37,3 +41,9 @@ pe-builder
     GetDirEntrySize = 
 		if (m_stFileInfo.fIsx64)
 			return m_pNTHeader64->OptionalHeader.DataDirectory[dwEntry].Size;
+
+### References
+- !!!!!!!!!!!!!!!!!https://0xrick.github.io/win-internals/pe5/
+
+### Import exported dll
+- [[Help] (manual mapping)how to get ordinal function address?](https://www.unknowncheats.me/forum/programming-for-beginners/365094-manual-mapping-ordinal-function-address.html)

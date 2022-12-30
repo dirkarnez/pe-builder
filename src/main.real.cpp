@@ -1,5 +1,7 @@
 #include <iostream>
-#include <Windows.h>
+#include <windows.h>
+#include <winnt.h>
+#include <iostream>
 #include <fstream>
 #include <cstdio>
 #include <cstring>
@@ -9,6 +11,51 @@
 #include <iterator>
 
 using namespace std;
+
+void import_GetStdHandle() {
+ 	// The DLL that the exe file imports functions from.
+	const char* dll_name = "kernel32.dll";
+
+	// The names of the functions that the exe file imports from the DLL.
+	const char* function_names[] = {
+		"GetStdHandle"
+		// "GetLastError",
+		// "GetCurrentProcessId",
+		// "GetCurrentThreadId",
+		// "GetTickCount",
+		// "GetSystemTimeAsFileTime",
+		// "GetCurrentProcess"
+	};
+
+	// Create the import table for the exe file.
+	IMAGE_IMPORT_DESCRIPTOR import_table[2] = {};
+	
+	memset(&import_table[0], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	import_table[0].Name = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER)); // The file offset of the DLL name in the exe file.
+	// RVA of the IAT
+	import_table[0].FirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+	// RVA of the ILT (lookup)
+	import_table[0].OriginalFirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+
+	
+
+	// Create the import lookup table for the exe file.
+	std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
+	for (const char* function_name : function_names) {
+		// Create an IMAGE_IMPORT_BY_NAME structure for the function.
+		size_t function_name_length = strlen(function_name);
+		std::vector<uint8_t> function_name_data(sizeof(IMAGE_IMPORT_BY_NAME) + function_name_length);
+		PIMAGE_IMPORT_BY_NAME function_name_struct = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(function_name_data.data());
+		function_name_struct->Hint = 0; // Not necessary // The hint, which is a 16-bit index into the export table of the DLL. 
+		memcpy(function_name_struct->Name, function_name, function_name_length + 1); // The name of the imported function
+		
+		IMAGE_THUNK_DATA64 thunk_data_64;
+		memset(&thunk_data_64, 0, sizeof(thunk_data_64));
+		thunk_data_64.u1.AddressOfData = (ULONGLONG)function_name_struct;  // RVA to an IMAGE_IMPORT_BY_NAME with the imported API name
+	}
+
+	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+}
 
 int main()
 {
@@ -34,10 +81,10 @@ int main()
 	dos_h.e_ovno		= 0x0000;
 	dos_h.e_oemid		= 0x0000;
 	dos_h.e_oeminfo		= 0x0000;
-	dos_h.e_lfanew		= 0x0040; // the NT header's Signature offset
+	dos_h.e_lfanew = sizeof(IMAGE_DOS_HEADER); // The file offset of the PE header, relative to the beginning of the file.
 
-	IMAGE_NT_HEADERS	nt_h;
-	memset(&nt_h, 0, sizeof(IMAGE_NT_HEADERS));
+	IMAGE_NT_HEADERS64 nt_h;
+	memset(&nt_h, 0, sizeof(IMAGE_NT_HEADERS64));
 	nt_h.Signature											= IMAGE_NT_SIGNATURE;
 	nt_h.FileHeader.Machine									= IMAGE_FILE_MACHINE_AMD64;
 	nt_h.FileHeader.NumberOfSections						= 3; // ".text", ".bss", ".data"
@@ -94,82 +141,59 @@ int main()
 	nt_h.OptionalHeader.LoaderFlags							= 0x00000000;// leave it
 	nt_h.OptionalHeader.NumberOfRvaAndSizes					= 0x00000010;// leave it
 
-
-	/*****************************WIP START*******************************/
-
-	// https://chromium.googlesource.com/chromium/src/base/+/master/win/pe_image.h
-
-	struct ImportDirectoryTableEntry {
-		uint32_t ImportLookupTableRVA;
-		uint32_t TimeDateStamp;
-		uint32_t ForwarderChain;
-		uint32_t NameRVA;
-		uint32_t ImportAddressTableRVA;
-	};
-	
- PIMAGE_IMPORT_DESCRIPTOR import = GetFirstImportChunk();
- import->FirstThunk
-_thunk_entry->u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
-	        PIMAGE_THUNK_DATA name_table;
-                                 PIMAGE_THUNK_DATA iat;
-
-								  sizeof(IMAGE_IMPORT_DESCRIPTOR);
-	/****************************WIP END ********************************/
-
-
-
 	// import kernel32
+	// cout << (n + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR)<< endl;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = 0x00000028;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = 0x00003034;
 
+	// cout << n * sizeof(ULONGLONG)<< endl;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].Size = 0x00000020;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].VirtualAddress = 0x00003000;
 
 
-
-
+	// https://github.com/TinyCC/tinycc/blob/d76e03232bb858387108c91e7bf58bd892563483/tccpe.c
+    // pe->imp_size = (ndlls + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR);
+    // pe->iat_size = (sym_cnt + ndlls) * sizeof(ADDR3264);
+    // dll_ptr = pe->thunk->data_offset;
+    // thk_ptr = dll_ptr + pe->imp_size;
+    // ent_ptr = thk_ptr + pe->iat_size;
+    // pe->imp_offs = dll_ptr + rva_base;
+    // pe->iat_offs = thk_ptr + rva_base;
+	
 
     // IMAGE_IMPORT_DESCRIPTOR* importTable = (IMAGE_IMPORT_DESCRIPTOR*)
     //         (nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress + 
 	// 		nt_h.OptionalHeader.ImageBase);
 
-	ULONGLONG;
+	// ULONGLONG;
 	
-	// import kernel32.dll
-	IMAGE_IMPORT_DESCRIPTOR import_descripter;
-	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-	import_descripter.OriginalFirstThunk = NULL; // Replace with rva to this->thunk_entry when outputting
-	import_descripter.TimeDateStamp = -1;
-	import_descripter.ForwarderChain = -1;
-	import_descripter.Name = NULL;
-	import_descripter.FirstThunk = rva; // PE Loader with patchup address at rva to become the address of the import, awesome!
+	// // import kernel32.dll
+	// IMAGE_IMPORT_DESCRIPTOR import_descripter;
+	// memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	// //import_descripter.OriginalFirstThunk = NULL; // Replace with rva to this->thunk_entry when outputting
+	// // import_descripter.TimeDateStamp = -1; // NO NEEDED
+	// // import_descripter.ForwarderChain = -1; // NO NEEDED
+	// // import_descripter.Name = NULL; // NO NEEDED
+	// import_descripter.FirstThunk = rva; // PE Loader with patchup address at rva to become the address of the import, awesome!
 
-	IMAGE_THUNK_DATA64  _thunk_entry;
-	_thunk_entry.u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
+	// IMAGE_THUNK_DATA64  _thunk_entry;
+	// _thunk_entry.u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
 
-	char* _library_name = new char[strlen("KERNEL32.dll")+1];
-	strcpy(_library_name, "KERNEL32.dll");
+	// char* _library_name = new char[strlen("KERNEL32.dll")+1];
+	// strcpy(_library_name, "KERNEL32.dll");
 
-	_thunk_entry.u1.AddressOfData = NULL; // Replace with rva to import_by_name
+	// _thunk_entry.u1.AddressOfData = NULL; // Replace with rva to import_by_name
 	
-	IMAGE_IMPORT_BY_NAME* _import_by_name = (IMAGE_IMPORT_BY_NAME*) new char[strlen("GetStdHandle")+1+sizeof(WORD)];
-	_import_by_name->Hint = 0; // Not necessary
-	size_t _import_by_name_len = strlen("GetStdHandle")+1+sizeof(WORD);
-	strcpy((char*)(&_import_by_name->Name), "GetStdHandle");
+	// IMAGE_IMPORT_BY_NAME* _import_by_name = (IMAGE_IMPORT_BY_NAME*) new char[strlen("GetStdHandle")+1+sizeof(WORD)];
+	// _import_by_name->Hint = 0; // Not necessary
+	// size_t _import_by_name_len = strlen("GetStdHandle")+1+sizeof(WORD);
+	// strcpy((char*)(&_import_by_name->Name), "GetStdHandle");
 
-	// import_descripter.Name[0] = 'K';
-	// import_descripter.Name[0] = 'K';
+	// // import_descripter.Name[0] = 'K';
+	// // import_descripter.Name[0] = 'K';
 	
-	// "KERNEL32.dll";
-	IMAGE_THUNK_DATA64 importAddressTable = import_descripter.FirstThunk;
-
-
-
-
-
-
-
-
+	// // "KERNEL32.dll";
+	// IMAGE_THUNK_DATA64 importAddressTable = import_descripter.FirstThunk;
 
 	// Initializing Section [ Code ]
 	IMAGE_SECTION_HEADER	code_section;
@@ -224,9 +248,11 @@ _thunk_entry->u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
 	import_section.Name[4] = 't';
 	import_section.Name[5] = 'a';
 	import_section.Name[6] = 0x0;
+
 	import_section.Misc.VirtualSize					= 0x000000B8;	// Virtual Size
 	import_section.VirtualAddress						= 0x00003000;	// Virtual Address****
 	import_section.SizeOfRawData						= 0x00000200;	// Raw Size
+
 	import_section.PointerToRawData					= 0x00000800;	// Raw Address
 	import_section.PointerToRelocations				= 0x00000000;	// Reloc Address
 	import_section.PointerToLinenumbers				= 0x00000000;	// Line Numbers
@@ -300,13 +326,13 @@ _thunk_entry->u1.Ordinal = IMAGE_ORDINAL_FLAG64 | (ordinal & 0xffff);
 
 
 	/***********************************/
-
-
+	
 	// "Console Message 64\r\n"
 	std::vector<uint8_t> data = {
 		0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20,
 		0x36, 0x34, 0x0D, 0x0A
 	};
+
 	std::for_each(data.begin(), data.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
 	for (size_t i = 0; i < data_section.SizeOfRawData - data.size(); i++) pe_writter.put(0x0);
 
