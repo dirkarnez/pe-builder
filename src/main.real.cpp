@@ -154,11 +154,13 @@ int main()
 	// https://github.com/TinyCC/tinycc/blob/d76e03232bb858387108c91e7bf58bd892563483/tccpe.c
     // pe->imp_size = (ndlls + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR);
     // pe->iat_size = (sym_cnt + ndlls) * sizeof(ADDR3264);
+
     // dll_ptr = pe->thunk->data_offset;
     // thk_ptr = dll_ptr + pe->imp_size;
     // ent_ptr = thk_ptr + pe->iat_size;
-    // pe->imp_offs = dll_ptr + rva_base;
-    // pe->iat_offs = thk_ptr + rva_base;
+
+    // pe->imp_offs  [IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = pe->thunk->data_offset + rva_base;
+    // pe->iat_offs  [IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress= pe->thunk->data_offset + pe->imp_size + rva_base;
 	
 
     // IMAGE_IMPORT_DESCRIPTOR* importTable = (IMAGE_IMPORT_DESCRIPTOR*)
@@ -326,7 +328,7 @@ int main()
 
 
 	/***********************************/
-	
+
 	// "Console Message 64\r\n"
 	std::vector<uint8_t> data = {
 		0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20,
