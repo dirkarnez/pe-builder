@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 #include <windows.h>
 #include <winnt.h>
 #include <iostream>
@@ -11,6 +12,17 @@
 #include <iterator>
 
 using namespace std;
+
+template<typename Ptr>
+size_t StrCpyT(Ptr p, const std::string& s)
+{
+  strncpy(reinterpret_cast<char*>(p), s.c_str(), s.length());
+  return s.size();
+}
+
+#define ToRVA(pSH, p) (DWORD(p) - DWORD(pBase) - pSH->PointerToRawData + pSH->VirtualAddress)
+#define ToVA(pSH, p) (DWORD(p) - DWORD(pBase) - pSH->PointerToRawData + pSH->VirtualAddress + pPE->ImageBase)
+#define VU_ALIGN_UP(v, a) (((v) + ((a) - 1)) & ~((a) - 1))
 
 void import_GetStdHandle() {
  	// The DLL that the exe file imports functions from.
@@ -83,20 +95,26 @@ int main()
 	dos_h.e_oeminfo		= 0x0000;
 	dos_h.e_lfanew = sizeof(IMAGE_DOS_HEADER); // The file offset of the PE header, relative to the beginning of the file.
 
+  	std::cout << "PE -> DOS Header -> Created" << std::endl;
+	
 	IMAGE_NT_HEADERS64 nt_h;
 	memset(&nt_h, 0, sizeof(IMAGE_NT_HEADERS64));
 	nt_h.Signature											= IMAGE_NT_SIGNATURE;
 	nt_h.FileHeader.Machine									= IMAGE_FILE_MACHINE_AMD64;
+
+	// TODO
 	nt_h.FileHeader.NumberOfSections						= 3; // ".text", ".bss", ".data"
-	nt_h.FileHeader.TimeDateStamp							= 0x00000000; // Must Update
+	nt_h.FileHeader.TimeDateStamp							= 0x00000000; // leave this
 	nt_h.FileHeader.PointerToSymbolTable					= 0x0; // leave this
 	nt_h.FileHeader.NumberOfSymbols							= 0x0; // leave this
-	nt_h.FileHeader.SizeOfOptionalHeader					= 0x00F0; // leave this
-	nt_h.FileHeader.Characteristics							= 0x0022; // declare this is a 64bit exe
+	
+	// TODO
+	nt_h.FileHeader.SizeOfOptionalHeader					= 0x00F0; // Must Update
+	nt_h.FileHeader.Characteristics							= IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_32BIT_MACHINE; // declare this is a 64bit exe
 
 	nt_h.OptionalHeader.Magic								= IMAGE_NT_OPTIONAL_HDR64_MAGIC;
-	nt_h.OptionalHeader.MajorLinkerVersion					= 10; // leave this
-	nt_h.OptionalHeader.MinorLinkerVersion					= 0x05; // leave this
+	// nt_h.OptionalHeader.MajorLinkerVersion					= 10; // leave this
+	// nt_h.OptionalHeader.MinorLinkerVersion					= 0x05; // leave this
 	nt_h.OptionalHeader.SizeOfCode							= 0x00000200;  // dynamic
 	nt_h.OptionalHeader.SizeOfInitializedData				= 0x00000400; // dynamic
 	nt_h.OptionalHeader.SizeOfUninitializedData				= 0x0; // dynamic
@@ -131,7 +149,7 @@ int main()
 	/*
 	The image file checksum. The following files are validated at load time: all drivers, any DLL loaded at boot time, and any DLL loaded into a critical system process.
 	*/
-	nt_h.OptionalHeader.CheckSum							= 0x0000FB72; // dynamic, Must Update
+	nt_h.OptionalHeader.CheckSum							= 0; //0x0000FB72; // dynamic, Must Update
 	nt_h.OptionalHeader.Subsystem							= IMAGE_SUBSYSTEM_WINDOWS_CUI;
 	nt_h.OptionalHeader.DllCharacteristics					= 0x0000; // leave it
 	nt_h.OptionalHeader.SizeOfStackReserve					= 0x0000000000100000;// leave it
@@ -139,12 +157,17 @@ int main()
 	nt_h.OptionalHeader.SizeOfHeapReserve					= 0x0000000000100000;// leave it
 	nt_h.OptionalHeader.SizeOfHeapCommit					= 0x0000000000001000;// leave it
 	nt_h.OptionalHeader.LoaderFlags							= 0x00000000;// leave it
-	nt_h.OptionalHeader.NumberOfRvaAndSizes					= 0x00000010;// leave it
+	nt_h.OptionalHeader.NumberOfRvaAndSizes					= IMAGE_NUMBEROF_DIRECTORY_ENTRIES;// leave it
+	
+	std::cout << "PE -> PE Header -> Created" << std::endl;
 
 	// import kernel32
 	// cout << (n + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR)<< endl;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = 0x00000028;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = 0x00003034;
+
+	// pPE->Import.VirtualAddress = pSHImport->VirtualAddress;
+	// pPE->Import.Size = sizeof(ImportDescriptor);
 
 	// cout << n * sizeof(ULONGLONG)<< endl;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].Size = 0x00000020;
