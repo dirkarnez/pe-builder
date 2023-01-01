@@ -128,11 +128,7 @@ int main()
 	nt_h.OptionalHeader.MajorSubsystemVersion				= 0x0005;// leave it
 	nt_h.OptionalHeader.MinorSubsystemVersion				= 0x0002;// leave it
 	nt_h.OptionalHeader.Win32VersionValue					= 0x0;// leave it
-	
-	/*
-	The size of the image, in bytes, including all headers. Must be a multiple of SectionAlignment.
-	*/
-	nt_h.OptionalHeader.SizeOfImage							= 0x00004000; // dynamic
+
 	/*
 	The combined size of the following items, rounded to a multiple of the value specified in the FileAlignment member.
 
@@ -355,6 +351,23 @@ int main()
 																				// 0x60000020
 
 
+	std::cout << "fixing PE Header..." << std::endl;
+	/*
+	The size of the image, in bytes, including all headers. Must be a multiple of SectionAlignment.
+	*/
+	nt_h.OptionalHeader.SizeOfImage							= 0x00004000; // dynamic
+	nt_h.OptionalHeader.NumberOfSections = iSH;
+	nt_h.OptionalHeader.AddressOfEntryPoint = pSHCode->VirtualAddress;
+	nt_h.OptionalHeader.BaseOfCode = pSHCode->VirtualAddress;
+	nt_h.OptionalHeader.SizeOfCode = pSHCode->Misc.VirtualSize;
+	nt_h.OptionalHeader.BaseOfData = pSHData->VirtualAddress;
+	nt_h.OptionalHeader.SizeOfImage = pSHLast->VirtualAddress + pSHLast->Misc.VirtualSize;
+	nt_h.OptionalHeader.SizeOfHeaders = VU_ALIGN_UP(DWORD(PBYTE(pSH) - pBase), pPE->FileAlignment); // The offset after the last section is the end / combined-size of all headers.
+
+
+	std::cout << "fixing PE Header is completed..." << std::endl;
+
+
 
 
 	// Create/Open PE File
@@ -445,8 +458,6 @@ int main()
 
 	std::for_each(imports.begin(), imports.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
 	for (size_t i = 0; i < import_section.SizeOfRawData - imports.size(); i++) pe_writter.put(0x0);
-
-
 
 	// Close PE File
 	pe_writter.close();
