@@ -47,3 +47,18 @@ pe-builder
 
 ### Import exported dll
 - [[Help] (manual mapping)how to get ordinal function address?](https://www.unknowncheats.me/forum/programming-for-beginners/365094-manual-mapping-ordinal-function-address.html)
+
+### Shorthand
+```cpp
+
+
+// Your First C++ Program
+
+#include <iostream>
+#include <windows.h>
+
+int main() {
+    std::cout << sizeof(IMAGE_OPTIONAL_HEADER64);
+    return 0;
+}
+```
