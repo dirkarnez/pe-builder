@@ -107,9 +107,7 @@ int main()
 	nt_h.FileHeader.TimeDateStamp							= 0x00000000; // leave this
 	nt_h.FileHeader.PointerToSymbolTable					= 0x0; // leave this
 	nt_h.FileHeader.NumberOfSymbols							= 0x0; // leave this
-	
-	// TODO
-	nt_h.FileHeader.SizeOfOptionalHeader					= 0x00F0; // Must Update
+	nt_h.FileHeader.SizeOfOptionalHeader					= sizeof(IMAGE_OPTIONAL_HEADER64); // leave this
 	nt_h.FileHeader.Characteristics							= IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_32BIT_MACHINE; // declare this is a 64bit exe
 
 	nt_h.OptionalHeader.Magic								= IMAGE_NT_OPTIONAL_HDR64_MAGIC;
@@ -120,7 +118,7 @@ int main()
 	nt_h.OptionalHeader.SizeOfUninitializedData				= 0x0; // dynamic
 	nt_h.OptionalHeader.AddressOfEntryPoint					= 0x00001000; // dynamic
 	nt_h.OptionalHeader.BaseOfCode							= 0x00001000;  // dynamic, normally same as AddressOfEntryPoint
-	nt_h.OptionalHeader.ImageBase							= 0x0000000000400000; // dynamic
+	nt_h.OptionalHeader.ImageBase							= 0x0000000000400000; // leave it
 	nt_h.OptionalHeader.SectionAlignment					= 0x00001000; // dynamic
 	nt_h.OptionalHeader.FileAlignment						= 0x00000200; // dynamic
 	nt_h.OptionalHeader.MajorOperatingSystemVersion			= 0x0005; // leave it
@@ -219,6 +217,73 @@ int main()
 	
 	// // "KERNEL32.dll";
 	// IMAGE_THUNK_DATA64 importAddressTable = import_descripter.FirstThunk;
+
+
+
+
+
+
+	PIMAGE_SECTION_HEADER pSHLast = nullptr;
+
+	// For this example,
+	// Default the raw/virtual offset is continuous file offset + raw size of previous section
+	// Default the raw/virtual size is equal to OptHeader.FileAlignment/OptHeader.SectionAlignment
+	const auto AddSectionHeader = [&](const std::string& name, const DWORD characteristics) -> PIMAGE_SECTION_HEADER
+	{
+		PIMAGE_SECTION_HEADER result = nullptr;
+
+		static IMAGE_SECTION_HEADER empty = { 0 };
+		ZeroMemory(&empty, sizeof(empty));
+		empty.PointerToRawData = PEBody;
+		empty.SizeOfRawData = pPE->FileAlignment;
+		empty.Misc.VirtualSize = pPE->SectionAlignment;
+
+		const auto pPrevSection = iSH == 0 ? &empty : pSH - 1;
+		
+		StrCpyT(pSH->Name, name.c_str());
+		pSH->PointerToRawData = pPrevSection->PointerToRawData + pPrevSection->SizeOfRawData;
+		pSH->SizeOfRawData = pPE->FileAlignment;
+		pSH->VirtualAddress = pPrevSection->VirtualAddress + pPrevSection->Misc.VirtualSize;
+		pSH->Misc.VirtualSize = pPE->SectionAlignment;
+		pSH->Characteristics = characteristics;
+
+		result = pSH;
+
+		std::cout << "PE -> Section Header -> " << name.c_str() << " -> Created" << std::endl;
+
+		iSH++;
+		pSH++;
+
+		pSHLast = result;
+
+		return result;
+	};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	// Initializing Section [ Code ]
 	IMAGE_SECTION_HEADER	code_section;
