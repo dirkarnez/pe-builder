@@ -24,50 +24,50 @@ size_t StrCpyT(Ptr p, const std::string& s)
 #define ToVA(pSH, p) (DWORD(p) - DWORD(&dos_h) - pSH->PointerToRawData + pSH->VirtualAddress + nt_h.OptionalHeader.ImageBase)
 #define VU_ALIGN_UP(v, a) (((v) + ((a) - 1)) & ~((a) - 1))
 
-void import_GetStdHandle() {
- 	// The DLL that the exe file imports functions from.
-	const char* dll_name = "kernel32.dll";
+// void import_GetStdHandle() {
+//  	// The DLL that the exe file imports functions from.
+// 	const char* dll_name = "kernel32.dll";
 
-	// The names of the functions that the exe file imports from the DLL.
-	const char* function_names[] = {
-		"GetStdHandle"
-		// "GetLastError",
-		// "GetCurrentProcessId",
-		// "GetCurrentThreadId",
-		// "GetTickCount",
-		// "GetSystemTimeAsFileTime",
-		// "GetCurrentProcess"
-	};
+// 	// The names of the functions that the exe file imports from the DLL.
+// 	const char* function_names[] = {
+// 		"GetStdHandle"
+// 		// "GetLastError",
+// 		// "GetCurrentProcessId",
+// 		// "GetCurrentThreadId",
+// 		// "GetTickCount",
+// 		// "GetSystemTimeAsFileTime",
+// 		// "GetCurrentProcess"
+// 	};
 
-	// Create the import table for the exe file.
-	IMAGE_IMPORT_DESCRIPTOR import_table[2] = {};
+// 	// Create the import table for the exe file.
+// 	IMAGE_IMPORT_DESCRIPTOR import_table[2] = {};
 	
-	memset(&import_table[0], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-	import_table[0].Name = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER)); // The file offset of the DLL name in the exe file.
-	// RVA of the IAT
-	import_table[0].FirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
-	// RVA of the ILT (lookup)
-	import_table[0].OriginalFirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+// 	memset(&import_table[0], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+// 	import_table[0].Name = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER)); // The file offset of the DLL name in the exe file.
+// 	// RVA of the IAT
+// 	import_table[0].FirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+// 	// RVA of the ILT (lookup)
+// 	import_table[0].OriginalFirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
 
 	
 
-	// Create the import lookup table for the exe file.
-	std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
-	for (const char* function_name : function_names) {
-		// Create an IMAGE_IMPORT_BY_NAME structure for the function.
-		size_t function_name_length = strlen(function_name);
-		std::vector<uint8_t> function_name_data(sizeof(IMAGE_IMPORT_BY_NAME) + function_name_length);
-		PIMAGE_IMPORT_BY_NAME function_name_struct = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(function_name_data.data());
-		function_name_struct->Hint = 0; // Not necessary // The hint, which is a 16-bit index into the export table of the DLL. 
-		memcpy(function_name_struct->Name, function_name, function_name_length + 1); // The name of the imported function
+// 	// Create the import lookup table for the exe file.
+// 	std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
+// 	for (const char* function_name : function_names) {
+// 		// Create an IMAGE_IMPORT_BY_NAME structure for the function.
+// 		size_t function_name_length = strlen(function_name);
+// 		std::vector<uint8_t> function_name_data(sizeof(IMAGE_IMPORT_BY_NAME) + function_name_length);
+// 		PIMAGE_IMPORT_BY_NAME function_name_struct = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(function_name_data.data());
+// 		function_name_struct->Hint = 0; // Not necessary // The hint, which is a 16-bit index into the export table of the DLL. 
+// 		memcpy(function_name_struct->Name, function_name, function_name_length + 1); // The name of the imported function
 		
-		IMAGE_THUNK_DATA64 thunk_data_64;
-		memset(&thunk_data_64, 0, sizeof(thunk_data_64));
-		thunk_data_64.u1.AddressOfData = (ULONGLONG)function_name_struct;  // RVA to an IMAGE_IMPORT_BY_NAME with the imported API name
-	}
+// 		IMAGE_THUNK_DATA64 thunk_data_64;
+// 		memset(&thunk_data_64, 0, sizeof(thunk_data_64));
+// 		thunk_data_64.u1.AddressOfData = (ULONGLONG)function_name_struct;  // RVA to an IMAGE_IMPORT_BY_NAME with the imported API name
+// 	}
 
-	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-}
+// 	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+// }
 
 int main()
 {
@@ -388,14 +388,14 @@ int main()
 	std::vector<uint8_t> code = {
 		0x48, 0x83, 0xC4, 0x48,			// add rsp, 0x48; Stack unwind
 		0x48, 0x31, 0xC9,				// xor rcx, rcx; hWnd
-		0x48, 0xC7, 0xC2, 		0x10, 0x20, 0x40, 0x00,	// mov rdx, Message(0x402010)
-		0x49, 0xC7, 0xC0,		0x00, 0x20, 0x40, 0x00,	// mov r8, Title(0x402000)
+		0x48, 0xC7, 0xC2, 		0x10, 0x20, 0x40, 0x00,	// mov rdx, Message(0x402010) (offset 10)
+		0x49, 0xC7, 0xC0,		0x00, 0x20, 0x40, 0x00,	// mov r8, Title(0x402000) (offset 17)
 		0x4D, 0x31, 0xC9,				// xor r9, r9; MB_OK
-		0x48, 0xC7, 0xC0,       0x5C, 0x30, 0x40, 0x00,	// mov rax, MessageBoxA address(0x40305c)
+		0x48, 0xC7, 0xC0,       0x5C, 0x30, 0x40, 0x00,	// mov rax, MessageBoxA address(0x40305c) (offset 27)
 		0xFF, 0x10,					// call[rax]; MessageBoxA(hWnd, Message, Title, MB_OK)
-		0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
-		0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
-		0xFF, 0x10,					// call[rax]; ExitProcess(0)
+		// 0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
+		// 0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c) 
+		// 0xFF, 0x10,					// call[rax]; ExitProcess(0)
 		0xC3						// ret; Never reached
 	};
 
@@ -410,8 +410,8 @@ int main()
   const auto vaText = ToVA(pSHData, pData);
   pData += len + 1; // +1 for string terminating null-character
 
-  // Correct API callee to imported functions that defined in the IAT
 
+  // Correct API callee to imported functions that defined in the IAT
   pIDT = PIMAGE_IMPORT_DESCRIPTOR((PBYTE)(&dos_h + pSHImport->PointerToRawData));
   auto pIAT = PBYTE(pIDT) + TotalSizeIDTs;
   const auto vaMessageBoxA = ToVA(pSHImport, pIAT); // For this example, IAT contains only one this API, so treat IAT offset as its offset
@@ -420,9 +420,9 @@ int main()
 
 
   
-  *PDWORD(&code[8])  = vaText;
-  *PDWORD(&code[3])  = vaCaption;
-  *PDWORD(&code[16]) = vaMessageBoxA;
+  *PDWORD(&code[10])  = vaText;
+  *PDWORD(&code[17])  = vaCaption;
+  *PDWORD(&code[27]) = vaMessageBoxA;
 
   const auto OEP = (PBYTE)(&dos_h + pSHCode->PointerToRawData);
 
@@ -535,10 +535,13 @@ int main()
 	// Write NT Header
 	pe_writter.write((char*)&nt_h, sizeof(nt_h));
 
+
+
+
 	// Write Headers of Sections
-	// pe_writter.write((char*)&code_section, sizeof(code_section));
-	// pe_writter.write((char*)&data_section, sizeof(data_section));
-	// pe_writter.write((char*)&import_section, sizeof(import_section));
+	pe_writter.write((char*)pSHCode, sizeof(*pSHCode));
+	pe_writter.write((char*)pSHData, sizeof(*pSHData));
+	pe_writter.write((char*)pSHImport, sizeof(*pSHImport));
 	
 
 	// Add Padding
