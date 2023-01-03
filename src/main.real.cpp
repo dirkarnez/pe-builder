@@ -20,9 +20,9 @@ size_t StrCpyT(Ptr p, const std::string& s)
   return s.size();
 }
 
-#define ToRVA(pSH, p) (DWORD(p) - DWORD(&dos_h) - pSH->PointerToRawData + pSH->VirtualAddress)
-#define ToVA(pSH, p) (DWORD(p) - DWORD(&dos_h) - pSH->PointerToRawData + pSH->VirtualAddress + nt_h.OptionalHeader.ImageBase)
-#define VU_ALIGN_UP(v, a) (((v) + ((a) - 1)) & ~((a) - 1))
+#define ToRVA(pSH, p) (DWORD((((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress)))
+#define ToVA(pSH, p) (((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress + nt_h.OptionalHeader.ImageBase)
+#define VU_ALIGN_UP(v, a) (((v) + ((a) - (1))) & ~((a) - (1)))
 
 // void import_GetStdHandle() {
 //  	// The DLL that the exe file imports functions from.
@@ -103,7 +103,7 @@ int main()
 	nt_h.FileHeader.Machine									= IMAGE_FILE_MACHINE_AMD64;
 
 	// TODO
-	nt_h.FileHeader.NumberOfSections						= 3; // ".text", ".bss", ".data"
+	// nt_h.FileHeader.NumberOfSections						= 3; // ".text", ".bss", ".data"
 	nt_h.FileHeader.TimeDateStamp							= 0x00000000; // leave this
 	nt_h.FileHeader.PointerToSymbolTable					= 0x0; // leave this
 	nt_h.FileHeader.NumberOfSymbols							= 0x0; // leave this
@@ -115,15 +115,15 @@ int main()
 	// nt_h.OptionalHeader.MinorLinkerVersion					= 0x05; // leave this
 	
 	// TODO
-	nt_h.OptionalHeader.SizeOfCode							= 0x00000200;  // dynamic
+	// nt_h.OptionalHeader.SizeOfCode							= 0x00000200;  // dynamic
 	nt_h.OptionalHeader.SizeOfInitializedData				= 0x00000400; // dynamic
 	nt_h.OptionalHeader.SizeOfUninitializedData				= 0x0; // dynamic
 
 	// TODO
-	nt_h.OptionalHeader.AddressOfEntryPoint					= 0x00001000; // dynamic
+	// nt_h.OptionalHeader.AddressOfEntryPoint					= 0x00001000; // dynamic
 
 	// TODO
-	nt_h.OptionalHeader.BaseOfCode							= 0x1000;  // dynamic, normally same as AddressOfEntryPoint
+	// nt_h.OptionalHeader.BaseOfCode							= 0x1000;  // dynamic, normally same as AddressOfEntryPoint
 	nt_h.OptionalHeader.ImageBase							= 0x400000; // leave it
 	nt_h.OptionalHeader.SectionAlignment					= 0x1000; // dynamic
 	nt_h.OptionalHeader.FileAlignment						= 0x200; // dynamic
@@ -146,10 +146,10 @@ int main()
 	*/
 
 	// TODO
-	nt_h.OptionalHeader.SizeOfImage							= 0x00000400;
+	// nt_h.OptionalHeader.SizeOfImage							= 0x00000400;
 
 	// TODO
-	nt_h.OptionalHeader.SizeOfHeaders						= 0x00000400;
+	// nt_h.OptionalHeader.SizeOfHeaders						= 0x00000400;
 
 	/*
 	The image file checksum. The following files are validated at load time: all drivers, any DLL loaded at boot time, and any DLL loaded into a critical system process.
@@ -167,7 +167,7 @@ int main()
 	std::cout << "PE -> PE Header -> Created" << std::endl;
 	
  	// The Section Header(s) after the NT Header
-	auto pSH = PIMAGE_SECTION_HEADER(DWORD(&nt_h) + sizeof(IMAGE_NT_HEADERS64));
+	auto pSH = PIMAGE_SECTION_HEADER(ULONGLONG(&nt_h) + sizeof(IMAGE_NT_HEADERS64));
 	const DWORD PEBody = 0x200;
   	static int iSH = 0;
 
@@ -288,6 +288,8 @@ int main()
 	// Fixup PE Header
 	
 	nt_h.FileHeader.NumberOfSections = iSH;
+	std::cout << "NumberOfSections: " << nt_h.FileHeader.NumberOfSections  << std::endl;
+
 	nt_h.OptionalHeader.AddressOfEntryPoint = pSHCode->VirtualAddress;
 	nt_h.OptionalHeader.BaseOfCode = pSHCode->VirtualAddress;
 	nt_h.OptionalHeader.SizeOfCode = pSHCode->Misc.VirtualSize;
@@ -302,7 +304,7 @@ int main()
 	
 	std::cout << "PE -> Import Directories -> Created" << std::endl;
 
-	typedef unsigned short  ushort;
+	typedef unsigned short ushort;
 
 	typedef std::pair<ushort, std::string> ImportByName;
 	std::map<std::string, std::vector<ImportByName>> m;
@@ -312,7 +314,12 @@ int main()
 	l.push_back(ImportByName(0, "MessageBoxA"));
 	m["user32.dll"] = l;
 
-	auto pIDT = PIMAGE_IMPORT_DESCRIPTOR((PBYTE)&dos_h + pSHImport->PointerToRawData);
+	IMAGE_IMPORT_DESCRIPTOR import_descripter;
+	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	PIMAGE_IMPORT_DESCRIPTOR pIDT = &import_descripter;
+
+
+//	auto pIDT = PIMAGE_IMPORT_DESCRIPTOR((&dos_h + pSHImport->PointerToRawData));
 
 	// Create IDT, IAT, ILT for each DLL
 	// - IDT -> Import Directory Table that Array<IID>
@@ -335,12 +342,13 @@ int main()
 
 	// Total size of IDTs
 	const auto TotalSizeIDTs = (m.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
-	auto pPtr = PBYTE(pIDT) + TotalSizeIDTs;
+	auto pPtr = &import_descripter;
+	pPtr += (DWORD)TotalSizeIDTs;
 
 	for (const auto& e : m)
 	{
-		auto pIAT = PDWORD(pPtr);
-		auto rvaIAT = ToRVA(pSHImport, pIAT);
+		PDWORD pIAT = PDWORD(pPtr);
+		DWORD rvaIAT = ToRVA(pSHImport, pIAT);
 
 		const auto EachIATSize = (e.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
 		pPtr += EachIATSize;
@@ -400,33 +408,47 @@ int main()
 	};
 
 
-  auto pData = (PBYTE)&dos_h + pSHData->PointerToRawData;
+//   auto pData = (PBYTE)(&dos_h + pSHData->PointerToRawData);
 
-  auto len = StrCpyT(pData, "Howdy, Vic P.");
-  const auto vaCaption = ToVA(pSHData, pData);
-  pData += len + 1; // +1 for string terminating null-character
+//   auto len = StrCpyT(pData, "Howdy, Vic P.");
+//   const auto vaCaption = ToVA(pSHData, pData);
+//   pData += len + 1; // +1 for string terminating null-character
 
-  StrCpyT(pData, "This is an example that manually created a PE file format");
-  const auto vaText = ToVA(pSHData, pData);
-  pData += len + 1; // +1 for string terminating null-character
+//   StrCpyT(pData, "This is an example that manually created a PE file format");
+//   const auto vaText = ToVA(pSHData, pData);
+//   pData += len + 1; // +1 for string terminating null-character
 
 
-  // Correct API callee to imported functions that defined in the IAT
-  pIDT = PIMAGE_IMPORT_DESCRIPTOR((PBYTE)(&dos_h + pSHImport->PointerToRawData));
-  auto pIAT = PBYTE(pIDT) + TotalSizeIDTs;
-  const auto vaMessageBoxA = ToVA(pSHImport, pIAT); // For this example, IAT contains only one this API, so treat IAT offset as its offset
+	// IMAGE_IMPORT_DESCRIPTOR import_descripter_another;
+	// memset(&import_descripter_another, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	// pIDT = &import_descripter_another;
 
-  std::cout << "PE -> Executable Codes -> Created" << std::endl;
+
+
+
+
+
+//   // Correct API callee to imported functions that defined in the IAT
+//   pIDT = PIMAGE_IMPORT_DESCRIPTOR(&dos_h + pSHImport->PointerToRawData);
 
 
   
-  *PDWORD(&code[10])  = vaText;
-  *PDWORD(&code[17])  = vaCaption;
-  *PDWORD(&code[27]) = vaMessageBoxA;
+//   auto pIAT = PBYTE(pIDT) + TotalSizeIDTs;
+//   const auto vaMessageBoxA = ToVA(pSHImport, pIAT); // For this example, IAT contains only one this API, so treat IAT offset as its offset
 
-  const auto OEP = (PBYTE)(&dos_h + pSHCode->PointerToRawData);
+  std::cout << "PE -> Executable Codes -> Created" << std::endl;
 
-  CopyMemory(OEP, &code, sizeof(code));
+//   *(&code[10])  = (uint8_t)vaText;
+//   *(&code[17])  = (uint8_t)vaCaption;
+//   *(&code[27]) = (uint8_t)vaMessageBoxA;
+  
+//   *PDWORD(&code[10])  = vaText;
+//   *PDWORD(&code[17])  = vaCaption;
+//   *PDWORD(&code[27]) = vaMessageBoxA;
+
+//   const auto OEP = (PBYTE)(&dos_h + pSHCode->PointerToRawData);
+
+//   CopyMemory(OEP, &code, sizeof(code));
 
   std::cout << "PE -> Executable Codes -> Fixed" << std::endl;
 
