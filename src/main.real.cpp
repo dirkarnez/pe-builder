@@ -430,9 +430,10 @@ int main()
 
 	std::cout << "PE -> Executable Codes -> Created" << std::endl;
 
-	  *(&code[10])  = (uint8_t)vaText;
-	  *(&code[17])  = (uint8_t)vaCaption;
-	  *(&code[27]) = (uint8_t)vaMessageBoxA;
+
+	code[10]  = (uint8_t)vaText;
+	code[17]  = (uint8_t)vaCaption;
+	code[27] = (uint8_t)vaMessageBoxA;
 
 	//   *PDWORD(&code[10])  = vaText;
 	//   *PDWORD(&code[17])  = vaCaption;
