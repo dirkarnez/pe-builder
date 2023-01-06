@@ -275,19 +275,42 @@ int main()
 	// ==========
 	// 0x60000020
 	// Add .code section
+
 	configSectionHeader(code_section);
 
+	//pSHData
+	IMAGE_SECTION_HEADER data_section;
+	memset(&data_section, 0, sizeof(IMAGE_SECTION_HEADER));
+	data_section.Name[0] = '.';
+	data_section.Name[1] = 'd';
+	data_section.Name[2] = 'a';
+	data_section.Name[3] = 't';
+	data_section.Name[4] = 'a';
+	data_section.Name[5] = 0x0;
+	data_section.Characteristics = 
+	IMAGE_SCN_CNT_INITIALIZED_DATA | //0x00000040
+	IMAGE_SCN_MEM_READ | //0x40000000
+	IMAGE_SCN_MEM_WRITE; //0x80000000
+	
+	configSectionHeader(data_section);
 
+	// pSHImport
+	IMAGE_SECTION_HEADER import_section;
+	memset(&import_section, 0, sizeof(IMAGE_SECTION_HEADER));
+	import_section.Name[0] = '.';
+	import_section.Name[1] = 'i';
+	import_section.Name[2] = 'd';
+	import_section.Name[3] = 'a';
+	import_section.Name[4] = 't';
+	import_section.Name[5] = 'a';
+	import_section.Name[6] = 0x0;
+	import_section.Characteristics = 
+	IMAGE_SCN_MEM_WRITE	  |
+	IMAGE_SCN_MEM_READ	  |
+	IMAGE_SCN_CNT_INITIALIZED_DATA;
 
-
-	// Add .data section
-	const auto pSHData = AddSectionHeader(
-		".data", IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE);
-
-	// Add .idata section
-	const auto pSHImport = AddSectionHeader(
-		".idata", IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE);
-
+	configSectionHeader(import_section);
+	
 	// Fixup PE Header
 
 	nt_h.FileHeader.NumberOfSections = iSH;
@@ -445,74 +468,8 @@ int main()
 
 	std::cout << "PE -> Executable Codes -> Fixed" << std::endl;
 
-	// // Initializing Section [ Code ]
-	// IMAGE_SECTION_HEADER	code_section;
-	// memset(&code_section, 0, sizeof(IMAGE_SECTION_HEADER));
-	// code_section.Name[0] = '.';
-	// code_section.Name[1] = 't';
-	// code_section.Name[2] = 'e';
-	// code_section.Name[3] = 'x';
-	// code_section.Name[4] = 't';
-	// code_section.Name[5] = 0x0;
-	// code_section.Misc.VirtualSize					= 0x00000060;	// Virtual Size
-	// code_section.VirtualAddress						= 0x00001000;	// Virtual Address
-	// code_section.SizeOfRawData						= 0x00000200;	// Raw Size
-	// code_section.PointerToRawData					= 0x00000400;	// Raw Address
-	// code_section.PointerToRelocations				= 0x00000000;	// Reloc Address
-	// code_section.PointerToLinenumbers				= 0x00000000;	// Line Numbers
-	// code_section.NumberOfRelocations				= 0x00000000;	// Reloc Numbers
-	// code_section.NumberOfLinenumbers				= 0x00000000;	// Line Numbers Number
-	// code_section.Characteristics					= IMAGE_SCN_MEM_EXECUTE	  |	// 0x20000000
-	// 												  IMAGE_SCN_MEM_READ	  |	// 0x40000000
-	// 												  IMAGE_SCN_CNT_CODE	  ; // 0x00000020
-	// 																			// ==========
-	// 																			// 0x60000020
 
-	IMAGE_SECTION_HEADER	data_section;
-	memset(&data_section, 0, sizeof(IMAGE_SECTION_HEADER));
-	// data_section.Name[0] = '.';
-	// data_section.Name[1] = 'd';
-	// data_section.Name[2] = 'a';
-	// data_section.Name[3] = 't';
-	// data_section.Name[4] = 'a';
-	// data_section.Name[5] = 0x0;
-	// data_section.Misc.VirtualSize					= 0x00000024;	// Virtual Size
-	// data_section.VirtualAddress						= 0x00002000;	// Virtual Address
-	// data_section.SizeOfRawData						= 0x00000200;	// Raw Size
-	// data_section.PointerToRawData					= 0x00000600;	// Raw Address
-	// data_section.PointerToRelocations				= 0x00000000;	// Reloc Address
-	// data_section.PointerToLinenumbers				= 0x00000000;	// Line Numbers
-	// data_section.NumberOfRelocations				= 0x00000000;	// Reloc Numbers
-	// data_section.NumberOfLinenumbers				= 0x00000000;	// Line Numbers Number
-	// data_section.Characteristics					= IMAGE_SCN_CNT_INITIALIZED_DATA | //0x00000040
-	//      											  	IMAGE_SCN_MEM_READ | //0x40000000
-	// 													IMAGE_SCN_MEM_WRITE; //0x80000000
 
-	// // ".idata"
-	// IMAGE_SECTION_HEADER	import_section;
-	// memset(&import_section, 0, sizeof(IMAGE_SECTION_HEADER));
-	// import_section.Name[0] = '.';
-	// import_section.Name[1] = 'i';
-	// import_section.Name[2] = 'd';
-	// import_section.Name[3] = 'a';
-	// import_section.Name[4] = 't';
-	// import_section.Name[5] = 'a';
-	// import_section.Name[6] = 0x0;
-
-	// import_section.Misc.VirtualSize					= 0x000000B8;	// Virtual Size
-	// import_section.VirtualAddress						= 0x00003000;	// Virtual Address****
-	// import_section.SizeOfRawData						= 0x00000200;	// Raw Size
-
-	// import_section.PointerToRawData					= 0x00000800;	// Raw Address
-	// import_section.PointerToRelocations				= 0x00000000;	// Reloc Address
-	// import_section.PointerToLinenumbers				= 0x00000000;	// Line Numbers
-	// import_section.NumberOfRelocations				= 0x00000000;	// Reloc Numbers
-	// import_section.NumberOfLinenumbers				= 0x00000000;	// Line Numbers Number
-	// import_section.Characteristics					= IMAGE_SCN_MEM_EXECUTE	  |	// 0x20000000
-	// 												  IMAGE_SCN_MEM_READ	  |	// 0x40000000
-	// 												  IMAGE_SCN_CNT_CODE	  ; // 0x00000020
-	// 																			// ==========
-	// 																			// 0x60000020
 
 	// std::cout << "fixing PE Header..." << std::endl;
 	// /*
