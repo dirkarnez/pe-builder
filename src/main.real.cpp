@@ -22,7 +22,28 @@ using namespace std;
 
 // PBYTE = unsigned char*
 // DWORD = unsigned long
+
+/*
+In an image file, this is the address of an item after it is loaded into memory, 
+with the base address of the image file subtracted from it. 
+The RVA of an item almost always differs from its position 
+within the file on disk (file pointer).
+In an object file, an RVA is less meaningful because memory 
+locations are not assigned. In this case, an RVA would be 
+an address within a section (described later in this table), 
+to which a relocation is later applied during linking. 
+For simplicity, a compiler should just set the first RVA in each section to zero.
+*/
 #define ToRVA(import_section_header_ptr, p) (DWORD(p) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress)
+
+/*
+Same as RVA, except that the base address of the image file is not subtracted.
+The address is called a VA because Windows creates a distinct VA space for each process, 
+independent of physical memory. For almost all purposes, 
+a VA should be considered just an address. 
+A VA is not as predictable as an RVA because 
+the loader might not load the image at its preferred location.
+*/
 #define ToVA(import_section_header_ptr, p) (DWORD(p) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress + pPE->ImageBase)
 
 // #define ToRVA(pSH, p) (DWORD((((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress)))
@@ -326,7 +347,7 @@ int main()
 
 	std::cout << "PE -> PE Header -> Fixed" << std::endl;
 
-	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = (&import_section)->VirtualAddress;
+	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = import_section.VirtualAddress;
 	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(import_section);
 
 	std::cout << "PE -> Import Directories -> Created" << std::endl;
@@ -334,20 +355,21 @@ int main()
 	typedef unsigned short ushort;
 
 	typedef std::pair<ushort, std::string> ImportByName;
-	std::map<std::string, std::vector<ImportByName>> m;
-	std::vector<ImportByName> l;
+	std::map<std::string, std::vector<ImportByName>> dll_map;
+	std::vector<ImportByName> dll_functions_imported_by_name;
 
-	l.clear();
-	l.push_back(ImportByName(0, "MessageBoxA"));
-	m["user32.dll"] = l;
+	dll_functions_imported_by_name.clear();
+	dll_functions_imported_by_name.push_back(ImportByName(0, "MessageBoxA"));
+	dll_map["user32.dll"] = dll_functions_imported_by_name;
+
 
 	//	auto pIDT = PIMAGE_IMPORT_DESCRIPTOR((&dos_h + pSHImport->PointerToRawData));
 
 	// Create IDT, IAT, ILT for each DLL
-	// - IDT -> Import Directory Table that Array<IID>
-	// - IAT -> Import Address Table that Array<Thunk Data>
-	// - ILT -> Import Lookup Table that Array<Hint, Function>
-
+	// - IDT -> Import Directory Table that Array<IMAGE_IMPORT_DESCRIPTOR>
+	// - IAT -> Import Address Table that Array<Thunk Data> IMAGE_THUNK_DATA64
+	// - ILT -> Import Lookup Table that Array<Hint, Function> IMAGE_THUNK_DATA64::Function
+	
 	/* Write them all in .idata section
 	 * Array<IDT> | Array<IAT | DLL | ILT>
 	 * or
@@ -362,54 +384,67 @@ int main()
 	 * |  |---
 	 */
 	
-	IMAGE_IMPORT_DESCRIPTOR import_descripter;
-	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-	PIMAGE_IMPORT_DESCRIPTOR import_descripter_pointer = &import_descripter;
+	std::vector<PIMAGE_IMPORT_DESCRIPTOR> import_descripter_list;
 
 	// Total size of IDTs
-	const unsigned long TotalSizeIDTs = (m.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
-	auto pPtr = import_descripter_pointer + TotalSizeIDTs;
+	// const unsigned long TotalSizeIDTs = (dll_map.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
+	// auto pPtr = import_descripter_pointer + TotalSizeIDTs;
 
-	for (const auto &e : m)
+	for (const std::pair<std::string, std::vector<ImportByName>> &dll_map_entry : dll_map)
 	{
+		auto dll_name = dll_map_entry.first;
+		auto dll_functions = dll_map_entry.second;
+
+		IMAGE_IMPORT_DESCRIPTOR import_descripter;
+		memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+
+		PIMAGE_IMPORT_DESCRIPTOR import_descripter_pointer = &import_descripter;
+
+
 		auto pIAT = PDWORD(pPtr);
 		auto rvaIAT = ToRVA((&import_section), pIAT);
 
-		const auto EachIATSize = (e.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
+		const auto EachIATSize = (dll_map_entry.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
 		pPtr += EachIATSize;
 
 		// Write hint/name of import functions of each DLL
 
-		StrCpyT(pPtr, e.first.c_str());
+		
+		StrCpyT(pPtr, dll_name.c_str());
 		auto rvaName = ToRVA((&import_section), pPtr);
 
-		pPtr += e.first.size() + 1; // +1 for a null-char padding
+		pPtr += dll_name.size() + 1; // +1 for a null-char padding
 
-		for (const auto &ibn : e.second) // image import by name (s)
+		for (const ImportByName &ibn : dll_functions) // image import by name (s)
 		{
-			*PWORD(pPtr) = ibn.first;						  // Hint
-			StrCpyT(pPtr + sizeof(WORD), ibn.second.c_str()); // Name
+			unsigned short hint = ibn.first;
+			std::string name = ibn.second;
+			
+			*PWORD(pPtr) = hint;						  // Hint
+			StrCpyT(pPtr + sizeof(WORD), name.c_str()); // Name
 
 			*pIAT++ = ToRVA((&import_section), pPtr); // Update Thunk Data for each import function in IAT
 
-			pPtr += sizeof(WORD) + ibn.second.size() + 2; // +2 for string terminating null-character & a null-char padding
+			pPtr += sizeof(WORD) + name.size() + 2; // +2 for string terminating null-character & a null-char padding
 		}
 
 		// Update IDT for each DLL
 
-		pIDT->Name = rvaName;
-		pIDT->FirstThunk = rvaIAT;
-		pIDT->OriginalFirstThunk = rvaIAT;
+		import_descripter.Name = rvaName; // get the rva of dll name
+		import_descripter.FirstThunk = rvaIAT;
+		import_descripter.OriginalFirstThunk = rvaIAT; // get the rva of ImportByName
 
-		std::cout << "PE -> Import Directory -> " << e.first << " -> Created" << std::endl;
+		std::cout << "PE -> Import Directory -> " << dll_name << " -> Created" << std::endl;
 
-		pIDT++; // Next IDD
+		import_descripter_list.push_back(&import_descripter);
 	}
 
-	pIDT++; // Next an empty IDD to mark end of IDT array
+	//pIDT++; // Next an empty IDD to mark end of IDT array
+	IMAGE_IMPORT_DESCRIPTOR import_descripter;
+	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	import_descripter_list.push_back(&import_descripter);
 
-
-
+	import_section.PointerToRawData = (DWORD)import_descripter_list.at(0);
 
 
 
@@ -461,9 +496,9 @@ int main()
 	// pIDT = &import_descripter_another;
 
 	//   // Correct API callee to imported functions that defined in the IAT
-	//   pIDT = PIMAGE_IMPORT_DESCRIPTOR(&dos_h + pSHImport->PointerToRawData);
+	//   pIDT = ;
 
-	//   auto pIAT = PBYTE(pIDT) + TotalSizeIDTs;
+	//   auto pIAT = PBYTE(PIMAGE_IMPORT_DESCRIPTOR(&dos_h + pSHImport->PointerToRawData)) + TotalSizeIDTs;
 	//   const auto vaMessageBoxA = ToVA(pSHImport, pIAT); // For this example, IAT contains only one this API, so treat IAT offset as its offset
 
 	std::cout << "PE -> Executable Codes -> Created" << std::endl;
@@ -545,6 +580,7 @@ int main()
 		0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34, 0x0D, 0x0A
 	};
 
+
 	std::for_each(data.begin(), data.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
 	for (size_t i = 0; i < data_section.SizeOfRawData - data.size(); i++) pe_writter.put(0x0);
 
@@ -564,12 +600,12 @@ int main()
 	// 	0x50, 0x72, 0x6F, 0x63, 0x65, 0x73, 0x73
 	// };
 
-	// std::for_each(imports.begin(), imports.end(), [&pe_writter](uint8_t &n){ 
-	// 	pe_writter.put(n); 
-	// });
-	// for (size_t i = 0; i < import_section.SizeOfRawData - imports.size(); i++) {
-	// 	pe_writter.put(0x0);
-	// }
+	std::for_each(import_descripter_list.begin(), import_descripter_list.end(), [&pe_writter](PIMAGE_IMPORT_DESCRIPTOR &import_descripter_pointer){
+		pe_writter.write((char *)import_descripter_pointer, sizeof((*import_descripter_pointer)));
+	});
+
+	// std::for_each(imports.begin(), imports.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
+	// for (size_t i = 0; i < import_section.SizeOfRawData - imports.size(); i++) pe_writter.put(0x0);
 
 	// Close PE File
 	pe_writter.close();
