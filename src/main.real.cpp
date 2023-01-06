@@ -113,7 +113,7 @@ int main()
 	nt_h.FileHeader.PointerToSymbolTable = 0x0;												  // leave this
 	nt_h.FileHeader.NumberOfSymbols = 0x0;													  // leave this
 	nt_h.FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);					  // leave this
-	nt_h.FileHeader.Characteristics = IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_32BIT_MACHINE; // declare this is a 64bit exe
+	nt_h.FileHeader.Characteristics = IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_LARGE_ADDRESS_AWARE; // declare this is a 64bit exe
 
 	nt_h.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR64_MAGIC;
 	// nt_h.OptionalHeader.MajorLinkerVersion					= 10; // leave this
@@ -247,7 +247,7 @@ int main()
 	// For this example,
 	// Default the raw/virtual offset is continuous file offset + raw size of previous section
 	// Default the raw/virtual size is equal to OptHeader.FileAlignment/OptHeader.SectionAlignment
-	const auto configSectionHeader = [&](IMAGE_SECTION_HEADER& const section_header) -> void
+	const auto configSectionHeader = [&](IMAGE_SECTION_HEADER& section_header) -> void
 	{
 		section_header.PointerToRawData = prev_section_ptr->PointerToRawData + prev_section_ptr->SizeOfRawData;
 		section_header.SizeOfRawData = nt_h.OptionalHeader.FileAlignment;
@@ -362,51 +362,51 @@ int main()
 	 * |  |---
 	 */
 	
-	// IMAGE_IMPORT_DESCRIPTOR import_descripter;
-	// memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-	// PIMAGE_IMPORT_DESCRIPTOR import_descripter_pointer = &import_descripter;
+	IMAGE_IMPORT_DESCRIPTOR import_descripter;
+	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	PIMAGE_IMPORT_DESCRIPTOR import_descripter_pointer = &import_descripter;
 
-	// // Total size of IDTs
-	// const unsigned long TotalSizeIDTs = (m.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
-	// auto pPtr = import_descripter_pointer + TotalSizeIDTs;
+	// Total size of IDTs
+	const unsigned long TotalSizeIDTs = (m.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
+	auto pPtr = import_descripter_pointer + TotalSizeIDTs;
 
-	// for (const auto &e : m)
-	// {
-	// 	auto pIAT = PDWORD(pPtr);
-	// 	auto rvaIAT = ToRVA((&import_section), pIAT);
+	for (const auto &e : m)
+	{
+		auto pIAT = PDWORD(pPtr);
+		auto rvaIAT = ToRVA((&import_section), pIAT);
 
-	// 	const auto EachIATSize = (e.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
-	// 	pPtr += EachIATSize;
+		const auto EachIATSize = (e.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
+		pPtr += EachIATSize;
 
-	// 	// Write hint/name of import functions of each DLL
+		// Write hint/name of import functions of each DLL
 
-	// 	StrCpyT(pPtr, e.first.c_str());
-	// 	auto rvaName = ToRVA((&import_section), pPtr);
+		StrCpyT(pPtr, e.first.c_str());
+		auto rvaName = ToRVA((&import_section), pPtr);
 
-	// 	pPtr += e.first.size() + 1; // +1 for a null-char padding
+		pPtr += e.first.size() + 1; // +1 for a null-char padding
 
-	// 	for (const auto &ibn : e.second) // image import by name (s)
-	// 	{
-	// 		*PWORD(pPtr) = ibn.first;						  // Hint
-	// 		StrCpyT(pPtr + sizeof(WORD), ibn.second.c_str()); // Name
+		for (const auto &ibn : e.second) // image import by name (s)
+		{
+			*PWORD(pPtr) = ibn.first;						  // Hint
+			StrCpyT(pPtr + sizeof(WORD), ibn.second.c_str()); // Name
 
-	// 		*pIAT++ = ToRVA((&import_section), pPtr); // Update Thunk Data for each import function in IAT
+			*pIAT++ = ToRVA((&import_section), pPtr); // Update Thunk Data for each import function in IAT
 
-	// 		pPtr += sizeof(WORD) + ibn.second.size() + 2; // +2 for string terminating null-character & a null-char padding
-	// 	}
+			pPtr += sizeof(WORD) + ibn.second.size() + 2; // +2 for string terminating null-character & a null-char padding
+		}
 
-	// 	// Update IDT for each DLL
+		// Update IDT for each DLL
 
-	// 	pIDT->Name = rvaName;
-	// 	pIDT->FirstThunk = rvaIAT;
-	// 	pIDT->OriginalFirstThunk = rvaIAT;
+		pIDT->Name = rvaName;
+		pIDT->FirstThunk = rvaIAT;
+		pIDT->OriginalFirstThunk = rvaIAT;
 
-	// 	std::cout << "PE -> Import Directory -> " << e.first << " -> Created" << std::endl;
+		std::cout << "PE -> Import Directory -> " << e.first << " -> Created" << std::endl;
 
-	// 	pIDT++; // Next IDD
-	// }
+		pIDT++; // Next IDD
+	}
 
-	// pIDT++; // Next an empty IDD to mark end of IDT array
+	pIDT++; // Next an empty IDD to mark end of IDT array
 
 
 
@@ -443,6 +443,8 @@ int main()
 		0xC3 // ret; Never reached
 	};
 
+
+
 	//   auto pData = (PBYTE)(&dos_h + pSHData->PointerToRawData);
 
 
@@ -475,29 +477,8 @@ int main()
 	//   *PDWORD(&code[17])  = vaCaption;
 	//   *PDWORD(&code[27]) = vaMessageBoxA;
 
-	//   const auto OEP = (PBYTE)(&dos_h + pSHCode->PointerToRawData);
-
-	//   CopyMemory(OEP, &code, sizeof(code));
-
-	std::cout << "PE -> Executable Codes -> Fixed" << std::endl;
 
 
-
-
-	// std::cout << "fixing PE Header..." << std::endl;
-	// /*
-	// The size of the image, in bytes, including all headers. Must be a multiple of SectionAlignment.
-	// */
-	// nt_h.OptionalHeader.SizeOfImage							= 0x00004000; // dynamic
-	// nt_h.OptionalHeader.NumberOfSections = iSH;
-	// nt_h.OptionalHeader.AddressOfEntryPoint = pSHCode->VirtualAddress;
-	// nt_h.OptionalHeader.BaseOfCode = pSHCode->VirtualAddress;
-	// nt_h.OptionalHeader.SizeOfCode = pSHCode->Misc.VirtualSize;
-	// nt_h.OptionalHeader.BaseOfData = pSHData->VirtualAddress;
-	// nt_h.OptionalHeader.SizeOfImage = pSHLast->VirtualAddress + pSHLast->Misc.VirtualSize;
-	// nt_h.OptionalHeader.SizeOfHeaders = VU_ALIGN_UP(DWORD(PBYTE(pSH) - pBase), pPE->FileAlignment); // The offset after the last section is the end / combined-size of all headers.
-
-	// std::cout << "fixing PE Header is completed..." << std::endl;
 
 	// Create/Open PE File
 	fstream pe_writter;
@@ -515,7 +496,7 @@ int main()
 	pe_writter.write((char *)&import_section, sizeof(import_section));
 
 	// Add Padding
-	// while (pe_writter.tellp() != code_section.PointerToRawData) pe_writter.put(0x0);
+	while (pe_writter.tellp() != code_section.PointerToRawData) pe_writter.put(0x0);
 
 	// Write Code Section
 
@@ -552,8 +533,10 @@ int main()
 	// 	0xE8, 0xD7, 0x1F, 0x0, 0x0
 	// };
 
-	// std::for_each(code.begin(), code.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
-	// for (size_t i = 0; i < code_section.SizeOfRawData - code.size(); i++) pe_writter.put(0x0);
+	std::for_each(code.begin(), code.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
+	for (size_t i = 0; i < code_section.SizeOfRawData - code.size(); i++) pe_writter.put(0x0);
+
+	std::cout << "PE -> Executable Codes -> Fixed" << std::endl;
 
 	// /***********************************/
 
@@ -591,8 +574,8 @@ int main()
 	// Close PE File
 	pe_writter.close();
 
+	printf("[Information] PE File packed with 0 Errors.");
 	cin.get();
 
-	printf("[Information] PE File packed with 0 Errors.");
 	return EXIT_SUCCESS;
 }
