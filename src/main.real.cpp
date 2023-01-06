@@ -20,8 +20,15 @@ using namespace std;
 // 	return s.size();
 // }
 
-#define ToRVA(pSH, p) (DWORD((((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress)))
-#define ToVA(pSH, p) (((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress + nt_h.OptionalHeader.ImageBase)
+// PBYTE = unsigned char*
+// DWORD = unsigned long
+#define ToRVA(import_section_header_ptr, p) (DWORD(p) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress)
+#define ToVA(import_section_header_ptr, p) (DWORD(p) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress + pPE->ImageBase)
+
+// #define ToRVA(pSH, p) (DWORD((((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress)))
+// #define ToVA(pSH, p) (((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress + nt_h.OptionalHeader.ImageBase)
+
+
 #define VU_ALIGN_UP(v, a) (((v) + ((a) - (1))) & ~((a) - (1)))
 
 // void import_GetStdHandle() {
@@ -226,38 +233,33 @@ int main()
 
 
 
-	const DWORD PEBody = 0x200;
-	static int iSH = 0;
+	unsigned short section_index = 0;
 
 	IMAGE_SECTION_HEADER empty_section;
 	memset(&empty_section, 0, sizeof(IMAGE_SECTION_HEADER));
-	empty_section.PointerToRawData = PEBody;
+	empty_section.PointerToRawData = 0x200;
 	empty_section.SizeOfRawData = nt_h.OptionalHeader.FileAlignment;
 	empty_section.Misc.VirtualSize = nt_h.OptionalHeader.SectionAlignment;
 
-	PIMAGE_SECTION_HEADER pPrevSection = &empty_section;
-	PIMAGE_SECTION_HEADER last_section_ptr = &empty_section;
+	PIMAGE_SECTION_HEADER prev_section_ptr = &empty_section;
+	PIMAGE_SECTION_HEADER last_section_ptr = nullptr;
 
 	// For this example,
 	// Default the raw/virtual offset is continuous file offset + raw size of previous section
 	// Default the raw/virtual size is equal to OptHeader.FileAlignment/OptHeader.SectionAlignment
 	const auto configSectionHeader = [&](IMAGE_SECTION_HEADER& const section_header) -> void
 	{
-		//PIMAGE_SECTION_HEADER result = nullptr;
-
-		section_header.PointerToRawData = pPrevSection->PointerToRawData + pPrevSection->SizeOfRawData;
+		section_header.PointerToRawData = prev_section_ptr->PointerToRawData + prev_section_ptr->SizeOfRawData;
 		section_header.SizeOfRawData = nt_h.OptionalHeader.FileAlignment;
-		section_header.VirtualAddress = pPrevSection->VirtualAddress + pPrevSection->Misc.VirtualSize;
+		section_header.VirtualAddress = prev_section_ptr->VirtualAddress + prev_section_ptr->Misc.VirtualSize;
 		section_header.Misc.VirtualSize = nt_h.OptionalHeader.SectionAlignment;
-
-		result = pSH;
 
 		std::cout << "PE -> Section Header -> " << section_header.Name << " -> Created" << std::endl;
 
-		iSH++;
-		pSH++;
+		section_index++;
 
-		pSHLast = &section_header;
+		last_section_ptr = &section_header;
+		prev_section_ptr = &section_header;
 	};
 
 	IMAGE_SECTION_HEADER code_section;
@@ -310,22 +312,22 @@ int main()
 	IMAGE_SCN_CNT_INITIALIZED_DATA;
 
 	configSectionHeader(import_section);
-	
+
 	// Fixup PE Header
 
-	nt_h.FileHeader.NumberOfSections = iSH;
+	nt_h.FileHeader.NumberOfSections = section_index;
 	std::cout << "NumberOfSections: " << nt_h.FileHeader.NumberOfSections << std::endl;
 
 	nt_h.OptionalHeader.AddressOfEntryPoint = code_section.VirtualAddress;
 	nt_h.OptionalHeader.BaseOfCode = code_section.VirtualAddress;
 	nt_h.OptionalHeader.SizeOfCode = code_section.Misc.VirtualSize;
 	nt_h.OptionalHeader.SizeOfImage = last_section_ptr->VirtualAddress + last_section_ptr->Misc.VirtualSize;
-	nt_h.OptionalHeader.SizeOfHeaders = VU_ALIGN_UP(DWORD(PBYTE(pSH) - (PBYTE)&dos_h), nt_h.OptionalHeader.FileAlignment); // The offset after the last section is the end / combined-size of all headers.
+	nt_h.OptionalHeader.SizeOfHeaders = VU_ALIGN_UP(DWORD(PBYTE(&import_section) - (PBYTE)&dos_h), nt_h.OptionalHeader.FileAlignment); // The offset after the last section is the end / combined-size of all headers.
 
 	std::cout << "PE -> PE Header -> Fixed" << std::endl;
 
-	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = pSHImport->VirtualAddress;
-	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(*pSHImport);
+	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = (&import_section)->VirtualAddress;
+	nt_h.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(import_section);
 
 	std::cout << "PE -> Import Directories -> Created" << std::endl;
 
@@ -360,51 +362,62 @@ int main()
 	 * |  |---
 	 */
 	
-	IMAGE_IMPORT_DESCRIPTOR import_descripter;
-	memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-	PIMAGE_IMPORT_DESCRIPTOR pIDT = &import_descripter;
+	// IMAGE_IMPORT_DESCRIPTOR import_descripter;
+	// memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	// PIMAGE_IMPORT_DESCRIPTOR import_descripter_pointer = &import_descripter;
 
-	// Total size of IDTs
-	const auto TotalSizeIDTs = (m.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
-	auto pPtr = (void*)&import_descripter + TotalSizeIDTs;
+	// // Total size of IDTs
+	// const unsigned long TotalSizeIDTs = (m.size() + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR); // +1 for an empty IDD
+	// auto pPtr = import_descripter_pointer + TotalSizeIDTs;
 
-	for (const auto &e : m)
-	{
-		PDWORD pIAT = PDWORD(pPtr);
-		DWORD rvaIAT = ToRVA(pSHImport, pIAT);
+	// for (const auto &e : m)
+	// {
+	// 	auto pIAT = PDWORD(pPtr);
+	// 	auto rvaIAT = ToRVA((&import_section), pIAT);
 
-		const auto EachIATSize = (e.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
-		pPtr += EachIATSize;
+	// 	const auto EachIATSize = (e.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
+	// 	pPtr += EachIATSize;
 
-		// Write hint/name of import functions of each DLL
+	// 	// Write hint/name of import functions of each DLL
 
-		StrCpyT(pPtr, e.first.c_str());
-		auto rvaName = ToRVA(pSHImport, pPtr);
+	// 	StrCpyT(pPtr, e.first.c_str());
+	// 	auto rvaName = ToRVA((&import_section), pPtr);
 
-		pPtr += e.first.size() + 1; // +1 for a null-char padding
+	// 	pPtr += e.first.size() + 1; // +1 for a null-char padding
 
-		for (const auto &ibn : e.second) // image import by name (s)
-		{
-			*PWORD(pPtr) = ibn.first;						  // Hint
-			StrCpyT(pPtr + sizeof(WORD), ibn.second.c_str()); // Name
+	// 	for (const auto &ibn : e.second) // image import by name (s)
+	// 	{
+	// 		*PWORD(pPtr) = ibn.first;						  // Hint
+	// 		StrCpyT(pPtr + sizeof(WORD), ibn.second.c_str()); // Name
 
-			*pIAT++ = ToRVA(pSHImport, pPtr); // Update Thunk Data for each import function in IAT
+	// 		*pIAT++ = ToRVA((&import_section), pPtr); // Update Thunk Data for each import function in IAT
 
-			pPtr += sizeof(WORD) + ibn.second.size() + 2; // +2 for string terminating null-character & a null-char padding
-		}
+	// 		pPtr += sizeof(WORD) + ibn.second.size() + 2; // +2 for string terminating null-character & a null-char padding
+	// 	}
 
-		// Update IDT for each DLL
+	// 	// Update IDT for each DLL
 
-		pIDT->Name = rvaName;
-		pIDT->FirstThunk = rvaIAT;
-		pIDT->OriginalFirstThunk = rvaIAT;
+	// 	pIDT->Name = rvaName;
+	// 	pIDT->FirstThunk = rvaIAT;
+	// 	pIDT->OriginalFirstThunk = rvaIAT;
 
-		std::cout << "PE -> Import Directory -> " << e.first << " -> Created" << std::endl;
+	// 	std::cout << "PE -> Import Directory -> " << e.first << " -> Created" << std::endl;
 
-		pIDT++; // Next IDD
-	}
+	// 	pIDT++; // Next IDD
+	// }
 
-	pIDT++; // Next an empty IDD to mark end of IDT array
+	// pIDT++; // Next an empty IDD to mark end of IDT array
+
+
+
+
+
+
+
+
+
+
+
 
 	// BYTE code[] =
 	// {
@@ -454,9 +467,9 @@ int main()
 	std::cout << "PE -> Executable Codes -> Created" << std::endl;
 
 
-	code[10]  = (uint8_t)vaText;
-	code[17]  = (uint8_t)vaCaption;
-	code[27] = (uint8_t)vaMessageBoxA;
+	// code[10]  = (uint8_t)vaText;
+	// code[17]  = (uint8_t)vaCaption;
+	// code[27] = (uint8_t)vaMessageBoxA;
 
 	//   *PDWORD(&code[10])  = vaText;
 	//   *PDWORD(&code[17])  = vaCaption;
@@ -498,8 +511,8 @@ int main()
 
 	// Write Headers of Sections
 	pe_writter.write((char *)&code_section, sizeof(code_section));
-	pe_writter.write((char *)pSHData, sizeof(*pSHData));
-	pe_writter.write((char *)pSHImport, sizeof(*pSHImport));
+	pe_writter.write((char *)&data_section, sizeof(data_section));
+	pe_writter.write((char *)&import_section, sizeof(import_section));
 
 	// Add Padding
 	// while (pe_writter.tellp() != code_section.PointerToRawData) pe_writter.put(0x0);
@@ -568,8 +581,12 @@ int main()
 	// 	0x50, 0x72, 0x6F, 0x63, 0x65, 0x73, 0x73
 	// };
 
-	// std::for_each(imports.begin(), imports.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
-	// for (size_t i = 0; i < import_section.SizeOfRawData - imports.size(); i++) pe_writter.put(0x0);
+	// std::for_each(imports.begin(), imports.end(), [&pe_writter](uint8_t &n){ 
+	// 	pe_writter.put(n); 
+	// });
+	// for (size_t i = 0; i < import_section.SizeOfRawData - imports.size(); i++) {
+	// 	pe_writter.put(0x0);
+	// }
 
 	// Close PE File
 	pe_writter.close();
