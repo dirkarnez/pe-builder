@@ -62,3 +62,35 @@ int main() {
     return 0;
 }
 ```
+
+
+### Notes
+```cpp
+// Function store the runtime address
+address_table[i].u1.Function = (DWORD) function_handle;
+
+// the lookup table points to function names or ordinals => it is the IDT
+IMAGE_THUNK_DATA* lookup_table = (IMAGE_THUNK_DATA*) (ImageBase + import_descriptors[i].OriginalFirstThunk);
+
+// the address table is a copy of the lookup table at first
+// but we put the addresses of the loaded function inside => that's the IAT
+IMAGE_THUNK_DATA* address_table = (IMAGE_THUNK_DATA*) (ImageBase + import_descriptors[i].FirstThunk);
+
+
+// Check the lookup table for the adresse of the function name to import
+// AddressOfData stores IMAGE_IMPORT_BY_NAME
+DWORD lookup_addr = lookup_table[i].u1.AddressOfData;
+
+if((lookup_addr & IMAGE_ORDINAL_FLAG) == 0) { //if first bit is not 1
+	// import by name : get the IMAGE_IMPORT_BY_NAME struct
+	IMAGE_IMPORT_BY_NAME* image_import = (IMAGE_IMPORT_BY_NAME*) (ImageBase + lookup_addr);
+	// this struct points to the ASCII function name
+	char* funct_name = (char*) &(image_import->Name);
+	// get that function address from it's module and name
+	function_handle = (void*) GetProcAddress(import_module, funct_name);
+} else {
+	// import by ordinal, directly
+	function_handle = (void*) GetProcAddress(import_module, (LPSTR) lookup_addr);
+}
+	
+```
