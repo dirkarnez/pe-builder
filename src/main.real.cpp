@@ -23,18 +23,7 @@ using namespace std;
 // PBYTE = unsigned char*
 // DWORD = unsigned long
 
-/*
-In an image file, this is the address of an item after it is loaded into memory, 
-with the base address of the image file subtracted from it. 
-The RVA of an item almost always differs from its position 
-within the file on disk (file pointer).
-In an object file, an RVA is less meaningful because memory 
-locations are not assigned. In this case, an RVA would be 
-an address within a section (described later in this table), 
-to which a relocation is later applied during linking. 
-For simplicity, a compiler should just set the first RVA in each section to zero.
-*/
-#define ToRVA(import_section_header_ptr, p) (DWORD(p) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress)
+
 
 /*
 Same as RVA, except that the base address of the image file is not subtracted.
@@ -44,7 +33,7 @@ a VA should be considered just an address.
 A VA is not as predictable as an RVA because 
 the loader might not load the image at its preferred location.
 */
-#define ToVA(import_section_header_ptr, p) (DWORD(p) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress + pPE->ImageBase)
+#define ToVA(import_section_header_ptr, ptr) (DWORD(ptr) - DWORD(&dos_h) - import_section_header_ptr->PointerToRawData + import_section_header_ptr->VirtualAddress + nt_h.OptionalHeader.ImageBase)
 
 // #define ToRVA(pSH, p) (DWORD((((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress)))
 // #define ToVA(pSH, p) (((ULONGLONG)(p)) - ((ULONGLONG)(&dos_h)) - pSH->PointerToRawData + pSH->VirtualAddress + nt_h.OptionalHeader.ImageBase)
@@ -52,48 +41,49 @@ the loader might not load the image at its preferred location.
 
 #define VU_ALIGN_UP(v, a) (((v) + ((a) - (1))) & ~((a) - (1)))
 
-// void import_GetStdHandle() {
-//  	// The DLL that the exe file imports functions from.
-// 	const char* dll_name = "kernel32.dll";
+void import_GetStdHandle() {
+ 	// The DLL that the exe file imports functions from.
+	const char* dll_name = "kernel32.dll";
 
-// 	// The names of the functions that the exe file imports from the DLL.
-// 	const char* function_names[] = {
-// 		"GetStdHandle"
-// 		// "GetLastError",
-// 		// "GetCurrentProcessId",
-// 		// "GetCurrentThreadId",
-// 		// "GetTickCount",
-// 		// "GetSystemTimeAsFileTime",
-// 		// "GetCurrentProcess"
-// 	};
+	// The names of the functions that the exe file imports from the DLL.
+	const char* function_names[] = {
+		"GetStdHandle"
+		// "GetLastError",
+		// "GetCurrentProcessId",
+		// "GetCurrentThreadId",
+		// "GetTickCount",
+		// "GetSystemTimeAsFileTime",
+		// "GetCurrentProcess"
+	};
 
-// 	// Create the import table for the exe file.
-// 	IMAGE_IMPORT_DESCRIPTOR import_table[2] = {};
+	// Create the import table for the exe file.
+	IMAGE_IMPORT_DESCRIPTOR import_table[2] = {};
 
-// 	memset(&import_table[0], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-// 	import_table[0].Name = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER)); // The file offset of the DLL name in the exe file.
-// 	// RVA of the IAT
-// 	import_table[0].FirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
-// 	// RVA of the ILT (lookup)
-// 	import_table[0].OriginalFirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
 
-// 	// Create the import lookup table for the exe file.
-// 	std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
-// 	for (const char* function_name : function_names) {
-// 		// Create an IMAGE_IMPORT_BY_NAME structure for the function.
-// 		size_t function_name_length = strlen(function_name);
-// 		std::vector<uint8_t> function_name_data(sizeof(IMAGE_IMPORT_BY_NAME) + function_name_length);
-// 		PIMAGE_IMPORT_BY_NAME function_name_struct = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(function_name_data.data());
-// 		function_name_struct->Hint = 0; // Not necessary // The hint, which is a 16-bit index into the export table of the DLL.
-// 		memcpy(function_name_struct->Name, function_name, function_name_length + 1); // The name of the imported function
+	memset(&import_table[0], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	import_table[0].Name = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER)); // The file offset of the DLL name in the exe file.
+	// RVA of the IAT
+	import_table[0].FirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+	// RVA of the ILT (lookup)
+	import_table[0].OriginalFirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
 
-// 		IMAGE_THUNK_DATA64 thunk_data_64;
-// 		memset(&thunk_data_64, 0, sizeof(thunk_data_64));
-// 		thunk_data_64.u1.AddressOfData = (ULONGLONG)function_name_struct;  // RVA to an IMAGE_IMPORT_BY_NAME with the imported API name
-// 	}
+	// Create the import lookup table for the exe file.
+	std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
+	for (const char* function_name : function_names) {
+		// Create an IMAGE_IMPORT_BY_NAME structure for the function.
+		size_t function_name_length = strlen(function_name);
+		std::vector<uint8_t> function_name_data(sizeof(IMAGE_IMPORT_BY_NAME) + function_name_length);
+		PIMAGE_IMPORT_BY_NAME function_name_struct = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(function_name_data.data());
+		function_name_struct->Hint = 0; // Not necessary // The hint, which is a 16-bit index into the export table of the DLL.
+		memcpy(function_name_struct->Name, function_name, function_name_length + 1); // The name of the imported function
 
-// 	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
-// }
+		IMAGE_THUNK_DATA64 thunk_data_64;
+		memset(&thunk_data_64, 0, sizeof(thunk_data_64));
+		thunk_data_64.u1.AddressOfData = (ULONGLONG)function_name_struct;  // RVA to an IMAGE_IMPORT_BY_NAME with the imported API name
+	}
+
+	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+}
 
 int main()
 {
@@ -265,10 +255,37 @@ int main()
 	PIMAGE_SECTION_HEADER prev_section_ptr = &empty_section;
 	PIMAGE_SECTION_HEADER last_section_ptr = nullptr;
 
+	const auto my_to_rva = [&](PIMAGE_SECTION_HEADER import_section_ptr, DWORD target_address) -> int
+	{
+		
+		// For instance, consider an EXE file loaded at address 0x400000, 
+		// with its code section at address 0x401000. The RVA of the code section would be:
+		//  (target address) 0x401000 - (load address)0x400000  = (RVA)0x1000
+
+		return target_address - DWORD(&dos_h) - import_section_ptr->PointerToRawData + import_section_ptr->VirtualAddress;
+		/*
+			In an image file, this is the address of an item after it is loaded into memory, 
+			with the base address of the image file subtracted from it. 
+			The RVA of an item almost always differs from its position 
+			within the file on disk (file pointer).
+			In an object file, an RVA is less meaningful because memory 
+			locations are not assigned. In this case, an RVA would be 
+			an address within a section (described later in this table), 
+			to which a relocation is later applied during linking. 
+			For simplicity, a compiler should just set the first RVA in each section to zero.
+		*/
+		// #define ToRVA(import_section_header_ptr, ptr) (\
+		// 	DWORD(ptr) - \
+		// 	DWORD(&dos_h) - \
+		// 	import_section_header_ptr->PointerToRawData + \
+		// 	import_section_header_ptr->VirtualAddress \
+		// )
+	};
+
 	// For this example,
 	// Default the raw/virtual offset is continuous file offset + raw size of previous section
 	// Default the raw/virtual size is equal to OptHeader.FileAlignment/OptHeader.SectionAlignment
-	const auto configSectionHeader = [&](IMAGE_SECTION_HEADER& section_header) -> void
+	const auto config_section_header = [&](IMAGE_SECTION_HEADER& section_header) -> void
 	{
 		section_header.PointerToRawData = prev_section_ptr->PointerToRawData + prev_section_ptr->SizeOfRawData;
 		section_header.SizeOfRawData = nt_h.OptionalHeader.FileAlignment;
@@ -299,7 +316,7 @@ int main()
 	// 0x60000020
 	// Add .code section
 
-	configSectionHeader(code_section);
+	config_section_header(code_section);
 
 	//pSHData
 	IMAGE_SECTION_HEADER data_section;
@@ -315,7 +332,7 @@ int main()
 	IMAGE_SCN_MEM_READ | //0x40000000
 	IMAGE_SCN_MEM_WRITE; //0x80000000
 	
-	configSectionHeader(data_section);
+	config_section_header(data_section);
 
 	// pSHImport
 	IMAGE_SECTION_HEADER import_section;
@@ -332,7 +349,7 @@ int main()
 	IMAGE_SCN_MEM_READ	  |
 	IMAGE_SCN_CNT_INITIALIZED_DATA;
 
-	configSectionHeader(import_section);
+	config_section_header(import_section);
 
 	// Fixup PE Header
 
@@ -352,16 +369,13 @@ int main()
 
 	std::cout << "PE -> Import Directories -> Created" << std::endl;
 
-	typedef unsigned short ushort;
-
-	typedef std::pair<ushort, std::string> ImportByName;
+	typedef std::pair<unsigned short, std::string> ImportByName;
 	std::map<std::string, std::vector<ImportByName>> dll_map;
 	std::vector<ImportByName> dll_functions_imported_by_name;
 
 	dll_functions_imported_by_name.clear();
 	dll_functions_imported_by_name.push_back(ImportByName(0, "MessageBoxA"));
 	dll_map["user32.dll"] = dll_functions_imported_by_name;
-
 
 	//	auto pIDT = PIMAGE_IMPORT_DESCRIPTOR((&dos_h + pSHImport->PointerToRawData));
 
@@ -392,8 +406,8 @@ int main()
 
 	for (const std::pair<std::string, std::vector<ImportByName>> &dll_map_entry : dll_map)
 	{
-		auto dll_name = dll_map_entry.first;
-		auto dll_functions = dll_map_entry.second;
+		std::string dll_name = dll_map_entry.first;
+		std::vector<ImportByName> dll_functions = dll_map_entry.second;
 
 		IMAGE_IMPORT_DESCRIPTOR import_descripter;
 		memset(&import_descripter, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
@@ -401,38 +415,72 @@ int main()
 		PIMAGE_IMPORT_DESCRIPTOR import_descripter_pointer = &import_descripter;
 
 
-		auto pIAT = PDWORD(pPtr);
-		auto rvaIAT = ToRVA((&import_section), pIAT);
+		// auto pIAT = PDWORD(pPtr);
+		// auto rvaIAT = ToRVA((&import_section), pIAT);
 
-		const auto EachIATSize = (dll_map_entry.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
-		pPtr += EachIATSize;
+		// const auto EachIATSize = (dll_map_entry.second.size() + 1) * sizeof(DWORD); // +1 DWORD for IAT padding
+		// pPtr += EachIATSize;
 
-		// Write hint/name of import functions of each DLL
+		// // Write hint/name of import functions of each DLL
 
 		
-		StrCpyT(pPtr, dll_name.c_str());
-		auto rvaName = ToRVA((&import_section), pPtr);
+		// StrCpyT(pPtr, dll_name.c_str());
+		// auto rvaName = ToRVA((&import_section), pPtr);
 
-		pPtr += dll_name.size() + 1; // +1 for a null-char padding
+		// pPtr += dll_name.size() + 1; // +1 for a null-char padding
+
+
+		std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
+		std::vector<IMAGE_THUNK_DATA64> import_address_table;
 
 		for (const ImportByName &ibn : dll_functions) // image import by name (s)
 		{
 			unsigned short hint = ibn.first;
-			std::string name = ibn.second;
+			std::string function_name = ibn.second;
+
+			size_t function_name_length = strlen(function_name.c_str());
 			
-			*PWORD(pPtr) = hint;						  // Hint
-			StrCpyT(pPtr + sizeof(WORD), name.c_str()); // Name
+			// *PWORD(pPtr) = hint;						  // Hint
+			// StrCpyT(pPtr + sizeof(WORD), name.c_str()); // Name
 
-			*pIAT++ = ToRVA((&import_section), pPtr); // Update Thunk Data for each import function in IAT
+			// *pIAT++ = ToRVA((&import_section), pPtr); // Update Thunk Data for each import function in IAT
 
-			pPtr += sizeof(WORD) + name.size() + 2; // +2 for string terminating null-character & a null-char padding
+			// pPtr += sizeof(WORD) + name.size() + 2; // +2 for string terminating null-character & a null-char padding
+
+			IMAGE_IMPORT_BY_NAME import_by_name;
+			memset(&import_by_name, 0, sizeof(IMAGE_IMPORT_BY_NAME));
+			import_by_name.Hint = 0;
+
+			memcpy(import_by_name.Name, function_name.c_str(), function_name_length + 1); // The name of the imported function
+
+			IMAGE_THUNK_DATA64 thunk_data_64;
+			memset(&thunk_data_64, 0, sizeof(thunk_data_64));
+			thunk_data_64.u1.AddressOfData = (unsigned long long)&import_by_name;
+
+
+
+			/*
+			    importThunk.u1.AddressOfData = baseRVA + offsetStrings;
+                memcpy(buffer + offsetStrings + 2, importFunction->Name, strlen(importFunction->Name));
+                offsetStrings += 2 + AlignNumber((DWORD)strlen(importFunction->Name) + 1, 2);
+			*/
+			// import_descripter.FirstThunk = (DWORD)&thunk_data_64;
+			// import_descripter.OriginalFirstThunk = (DWORD)&thunk_data_64;
+
+			// Function store the runtime address
+			// thunk_data_64.u1.Function
+			
+
 		}
 
 		// Update IDT for each DLL
-
-		import_descripter.Name = rvaName; // get the rva of dll name
-		import_descripter.FirstThunk = rvaIAT;
-		import_descripter.OriginalFirstThunk = rvaIAT; // get the rva of ImportByName
+		auto ptr = (&import_section);
+		auto ptr2 = (dll_name.c_str());
+		import_descripter.ForwarderChain = -1;
+		//import_descripter.Name = ToRVA(ptr, ptr2); // get the rva of dll name
+		my_to_rva(&import_section, (DWORD)dll_name.c_str());
+		// import_descripter.FirstThunk = ;
+		// import_descripter.OriginalFirstThunk = rvaIAT; // get the rva of ImportByName
 
 		std::cout << "PE -> Import Directory -> " << dll_name << " -> Created" << std::endl;
 
@@ -445,8 +493,7 @@ int main()
 	import_descripter_list.push_back(&import_descripter);
 
 	import_section.PointerToRawData = (DWORD)import_descripter_list.at(0);
-
-
+	//import_section.SizeOfRawData = 
 
 
 
@@ -508,10 +555,6 @@ int main()
 	// code[17]  = (uint8_t)vaCaption;
 	// code[27] = (uint8_t)vaMessageBoxA;
 
-	//   *PDWORD(&code[10])  = vaText;
-	//   *PDWORD(&code[17])  = vaCaption;
-	//   *PDWORD(&code[27]) = vaMessageBoxA;
-
 
 
 
@@ -527,11 +570,15 @@ int main()
 
 	// Write Headers of Sections
 	pe_writter.write((char *)&code_section, sizeof(code_section));
-	pe_writter.write((char *)&data_section, sizeof(data_section));
-	pe_writter.write((char *)&import_section, sizeof(import_section));
-
-	// Add Padding
 	while (pe_writter.tellp() != code_section.PointerToRawData) pe_writter.put(0x0);
+
+	pe_writter.write((char *)&data_section, sizeof(data_section));
+	while (pe_writter.tellp() != data_section.PointerToRawData) pe_writter.put(0x0);
+
+	pe_writter.write((char *)&import_section, sizeof(import_section));
+	while (pe_writter.tellp() != import_section.PointerToRawData) pe_writter.put(0x0);
+
+
 
 	// Write Code Section
 

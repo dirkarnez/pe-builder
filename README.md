@@ -4,7 +4,9 @@ pe-builder
 ### Truth
 - (target address) 0x401000 - (load address)0x400000  = (RVA)0x1000
   - To convert an RVA to an actual address, simply reverse the process: add the RVA to the actual load address to find the actual memory address.
+  - > For instance, consider an EXE file loaded at address 0x400000, with its code section at address 0x401000. The RVA of the code section would be:
 - DataDirectory[dwEntry].VirtualAddress is rva
+- DWORD = unsigned long
 
 ### Reference
 - [base/pe_image.cc at d7453874fda54fe2701fea6b108abf9a29a9b990 · yue/base](https://github.com/yue/base/blob/d7453874fda54fe2701fea6b108abf9a29a9b990/win/pe_image.cc)
@@ -94,3 +96,39 @@ if((lookup_addr & IMAGE_ORDINAL_FLAG) == 0) { //if first bit is not 1
 }
 	
 ```
+```cpp
+	IMAGE_IMPORT_DESCRIPTOR import_table[2] = {};
+
+	memset(&import_table[0], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+	import_table[0].Name = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER)); // The file offset of the DLL name in the exe file.
+	// RVA of the IAT
+	import_table[0].FirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+	// RVA of the ILT (lookup)
+	import_table[0].OriginalFirstThunk = (DWORD)(sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS64) + sizeof(IMAGE_SECTION_HEADER) + sizeof(IMAGE_IMPORT_DESCRIPTOR)); // The file offset of the import lookup table.
+
+	// Create the import lookup table for the exe file.
+	std::vector<IMAGE_THUNK_DATA64> import_lookup_table;
+	for (const char* function_name : function_names) {
+		// Create an IMAGE_IMPORT_BY_NAME structure for the function.
+		size_t function_name_length = strlen(function_name);
+		std::vector<uint8_t> function_name_data(sizeof(IMAGE_IMPORT_BY_NAME) + function_name_length);
+		PIMAGE_IMPORT_BY_NAME function_name_struct = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(function_name_data.data());
+		function_name_struct->Hint = 0; // Not necessary // The hint, which is a 16-bit index into the export table of the DLL.
+		memcpy(function_name_struct->Name, function_name, function_name_length + 1); // The name of the imported function
+
+		IMAGE_THUNK_DATA64 thunk_data_64;
+		memset(&thunk_data_64, 0, sizeof(thunk_data_64));
+		thunk_data_64.u1.AddressOfData = (ULONGLONG)function_name_struct;  // RVA to an IMAGE_IMPORT_BY_NAME with the imported API name
+	}
+
+	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+```
+
+### NOTES
+- PointerToRawData is the value in hex editor
+- VirtualAddress is defined address to be load into the memory
+- VirtualSize is size before aligned
+- SizeOfRawData is aligned size
+- !!!!!!!!!!!!!!!!!!https://github.com/TheDusty01/PEImportTableModifier/blob/fd6568b686feb1b38ea0fe210e5e0dd32c988506/PEImportTableModifier/src/PEFile.cpp
+- https://www.cnblogs.com/zpchcbd/p/14674298.html
+- https://github.com/hasherezade/libpeconv/blob/master/libpeconv/src/pe_raw_to_virtual.cpp
