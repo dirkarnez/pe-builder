@@ -132,3 +132,4 @@ if((lookup_addr & IMAGE_ORDINAL_FLAG) == 0) { //if first bit is not 1
 - !!!!!!!!!!!!!!!!!!https://github.com/TheDusty01/PEImportTableModifier/blob/fd6568b686feb1b38ea0fe210e5e0dd32c988506/PEImportTableModifier/src/PEFile.cpp
 - https://www.cnblogs.com/zpchcbd/p/14674298.html
 - https://github.com/hasherezade/libpeconv/blob/master/libpeconv/src/pe_raw_to_virtual.cpp
+- https://github.com/csw201710/demo/blob/6b064dc44922fafec42ad90b1a9bc7c5781870f2/window/pe/libpe/pe.c
