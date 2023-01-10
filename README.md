@@ -52,16 +52,30 @@ pe-builder
 
 ### Shorthand
 ```cpp
-
-
-// Your First C++ Program
-
-#include <iostream>
+#include <fstream> 
 #include <windows.h>
+#include <winnt.h>
+#include <iostream>
 
-int main() {
-    std::cout << sizeof(IMAGE_OPTIONAL_HEADER64);
-    return 0;
+int main () {
+
+  std::ofstream outfile;
+  outfile.open ("test.txt");
+    IMAGE_NT_HEADERS64 nt_h;
+	memset(&nt_h, 0, sizeof(IMAGE_NT_HEADERS64));
+  std::cout << sizeof(IMAGE_NT_HEADERS64) << std::endl; 
+    std::cout << sizeof(nt_h) << std::endl; 
+	outfile.write((char *)&nt_h, sizeof(nt_h));
+  long pos = outfile.tellp();
+  std::cout << pos;
+  
+  outfile.seekp (pos-7);
+  outfile.write (" sam",4);
+
+
+  outfile.close();
+
+  return 0;
 }
 ```
 
