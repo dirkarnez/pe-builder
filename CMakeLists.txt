@@ -16,7 +16,8 @@ SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
 # )
 
 add_executable(${PROJECT_NAME}
-"src/main.real.cpp"
+# "src/main.real.cpp"
+"src/mainv2.cpp"
 )
 
 # target_link_libraries(${PROJECT_NAME} 
