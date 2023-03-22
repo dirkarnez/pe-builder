@@ -5,8 +5,8 @@ set DOWNLOADS_DIR=%USERPROFILE%\Downloads
 set DOWNLOADS_DIR_LINUX=%DOWNLOADS_DIR:\=/%
 SET PATH=^
 %DOWNLOADS_DIR%\PortableGit\bin;^
-%DOWNLOADS_DIR%\x86_64-8.1.0-release-posix-seh-rt_v6-rev0;^
-%DOWNLOADS_DIR%\x86_64-8.1.0-release-posix-seh-rt_v6-rev0\bin;^
+%DOWNLOADS_DIR%\winlibs-x86_64-posix-seh-gcc-12.2.0-mingw-w64ucrt-10.0.0-r4\mingw64;^
+%DOWNLOADS_DIR%\winlibs-x86_64-posix-seh-gcc-12.2.0-mingw-w64ucrt-10.0.0-r4\mingw64\bin;^
 %DOWNLOADS_DIR%\cmake-3.22.2-windows-x86_64\bin;
 
 @REM set PATH=^

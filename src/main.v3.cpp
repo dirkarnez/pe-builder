@@ -702,7 +702,7 @@ int main(int argc, char* argv[])
     // Open the input file
     PEFile pe;
 
-    PEResult rc = pe.LoadFromFile("dinput8.dll.orig");
+    PEResult rc = pe.LoadFromFile("main.exe");
     if (rc != PEResult::Success)
     {
         return WaitForExit(rc, "Failed to load file: ");
@@ -710,14 +710,14 @@ int main(int argc, char* argv[])
     std::cout << "Loaded PE file" << std::endl;
 
     // Add the exported functions of your DLL
-    const char* functions[] = { "SomeFunction" };
+    const char* functions[] = { "MessageBox" };
 
     // Add the import to the PE file
-    pe.AddImport("PEImportTableModifier.Stub.dll", (char**)functions, 1);
+    pe.AddImport("user32.dll", (char**)functions, 1);
     std::cout << "Added imports to PE file" << std::endl;
 
     // Save the modified file
-    rc = pe.SaveToFile("dinput8.dll");
+    rc = pe.SaveToFile("main.new.exe");
     if (rc != PEResult::Success)
     {
         return WaitForExit(rc, "Failed to save file: ");
