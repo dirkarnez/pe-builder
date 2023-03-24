@@ -88,6 +88,7 @@ public:
 	void New();
     PEResult SaveToFile(std::filesystem::path filePath);
     DWORD GetFileAlignment();
+	PE_SECTION_ENTRY GetSectionByIndex(int32_t index);
     int32_t AddSection(std::string_view name, DWORD size, bool isExecutable);
     void AddImport(std::string_view dllName, char** functions, int functionCount);
     void Commit();
@@ -105,7 +106,6 @@ private:
     IMAGE_SECTION_HEADER m_sectionTable[MAX_SECTIONS];
     PE_SECTION_ENTRY m_reservedData;
     PE_SECTION_ENTRY m_sections[MAX_SECTIONS];
-    // PE_IMPORT_DLL_ENTRY m_importTable;
     PE_IMPORT_DLL_ENTRY m_additionalImports;
 
     int8_t* m_loadedPeFile;
@@ -129,6 +129,9 @@ private:
     void ComputeSectionTable();
 };
 
+PE_SECTION_ENTRY PEFile::GetSectionByIndex(int32_t index) {
+	return m_sections[index];
+}
 
 PEFile::PEFile()
 {
@@ -151,7 +154,7 @@ void PEFile::Initialize()
 
     m_loadedPeFile = nullptr;
     memset(&m_additionalImports, 0, sizeof(PE_IMPORT_DLL_ENTRY));
-
+	
 	memset(m_sectionTable, 0, sizeof(m_sectionTable));
 }
 
@@ -184,6 +187,9 @@ PEResult PEFile::SaveToFile(std::filesystem::path filePath)
         WritePadding(file, m_sectionTable[i].PointerToRawData - file.tellp());
         file.write((char*)m_sections[i].RawData, m_sections[i].Size);
     }
+
+
+	
 	
 	std::cout << "!!!!g" << std::endl;
     return PEResult::Success;
@@ -347,7 +353,7 @@ char* PEFile::BuildAdditionalImports(DWORD baseRVA)
     Commit();
 
     IMAGE_IMPORT_DESCRIPTOR importDesc;
-    IMAGE_THUNK_DATA importThunk;
+    IMAGE_THUNK_DATA64 importThunk;
     PE_IMPORT_DLL_ENTRY* importDll;
     PE_IMPORT_FUNCTION_ENTRY* importFunction;
 
@@ -378,7 +384,7 @@ char* PEFile::BuildAdditionalImports(DWORD baseRVA)
         importFunction = importDll->Functions;
         while (importFunction != nullptr)
         {
-            memset(&importThunk, 0, sizeof(IMAGE_THUNK_DATA));
+            memset(&importThunk, 0, sizeof(IMAGE_THUNK_DATA64));
             if (importFunction->Id != 0)
             {
                 importThunk.u1.Ordinal = importFunction->Id | IMAGE_ORDINAL_FLAG32;
@@ -392,13 +398,13 @@ char* PEFile::BuildAdditionalImports(DWORD baseRVA)
                 offsetStrings += 2 + AlignNumber((DWORD)strlen(importFunction->Name) + 1, 2);
             }
 
-            memcpy(buffer + offsetFunctions, &importThunk, sizeof(IMAGE_THUNK_DATA));
-            memcpy(buffer + offsetFunctions + sizeFunctions, &importThunk, sizeof(IMAGE_THUNK_DATA));
-            offsetFunctions += sizeof(IMAGE_THUNK_DATA);
+            memcpy(buffer + offsetFunctions, &importThunk, sizeof(IMAGE_THUNK_DATA64));
+            memcpy(buffer + offsetFunctions + sizeFunctions, &importThunk, sizeof(IMAGE_THUNK_DATA64));
+            offsetFunctions += sizeof(IMAGE_THUNK_DATA64);
 
             importFunction = importFunction->Next;
         }
-        offsetFunctions += sizeof(IMAGE_THUNK_DATA);
+        offsetFunctions += sizeof(IMAGE_THUNK_DATA64);
 
         importDll = importDll->Next;
     }
@@ -419,14 +425,14 @@ DWORD PEFile::CalculateAdditionalImportsSize(DWORD& sizeDlls, DWORD& sizeFunctio
         importFunction = importDll->Functions;
         while (importFunction != nullptr)
         {
-            sizeFunctions += sizeof(IMAGE_THUNK_DATA);
+            sizeFunctions += sizeof(IMAGE_THUNK_DATA64);
             if (importFunction->Id == 0)
             {
                 sizeStrings += 2 + AlignNumber((DWORD)strlen(importFunction->Name) + 1, 2);
             }
             importFunction = importFunction->Next;
         }
-        sizeFunctions += sizeof(IMAGE_THUNK_DATA);
+        sizeFunctions += sizeof(IMAGE_THUNK_DATA64);
         importDll = importDll->Next;
     }
     sizeDlls += sizeof(IMAGE_IMPORT_DESCRIPTOR);
@@ -504,7 +510,7 @@ int32_t PEFile::AddSection(std::string_view name, DWORD size, bool isExecutable)
 
     if (isExecutable)
     {
-        newSectionHeader.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        newSectionHeader.Characteristics = IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE;
 		this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint = newSectionHeader.VirtualAddress;
 		std::cout << "!!!!isExecutable" << this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint << std::endl;
     }
@@ -691,10 +697,34 @@ int main()
     pe.AddImport("user32.dll", (char**)functions, 1);
     std::cout << "Added imports to PE file" << std::endl;
 
-	pe.AddSection(TEXT_SECTION_NAME, pe.GetFileAlignment(), true);
+	int textSectionIndex = pe.AddSection(TEXT_SECTION_NAME, pe.GetFileAlignment(), true);
 	std::cout << "!!!!a" << std::endl;
+	auto codeSection = pe.GetSectionByIndex(textSectionIndex);
+	
+	std::vector<uint8_t> code = {
+		0x48, 0x83, 0xC4, 0x48,					  // add rsp, 0x48; Stack unwind
+		0x48, 0x31, 0xC9,						  // xor rcx, rcx; hWnd
+		0x48, 0xC7, 0xC2, 0x10, 0x20, 0x40, 0x00, // mov rdx, Message(0x402010) (offset 10)
+		0x49, 0xC7, 0xC0, 0x00, 0x20, 0x40, 0x00, // mov r8, Title(0x402000) (offset 17)
+		0x4D, 0x31, 0xC9,						  // xor r9, r9; MB_OK
+		0x48, 0xC7, 0xC0, 0x5C, 0x30, 0x40, 0x00, // mov rax, MessageBoxA address(0x40305c) (offset 27)
+		0xFF, 0x10,								  // call[rax]; MessageBoxA(hWnd, Message, Title, MB_OK)
+		// 0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
+		// 0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
+		// 0xFF, 0x10,					// call[rax]; ExitProcess(0)
+		0xC3 // ret; Never reached
+	};
+    memcpy(codeSection.RawData, code.data(), code.size());
 
-	pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
+
+
+	// int dataSectionIndex = pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
+	// std::vector<uint8_t> data = {
+	// 	0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34, 0x0D, 0x0A
+	// };
+	// auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
+	// memcpy(dataSection.RawData, data.data(), data.size());
+	
 	std::cout << "!!!!b" << std::endl;
 
 	pe.SaveToFile("dev.exe");
