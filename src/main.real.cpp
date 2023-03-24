@@ -236,7 +236,7 @@ void PEFile::New() {
 	this->m_ntHeaders64.OptionalHeader.SizeOfUninitializedData = 0x0;		// dynamic
 
 	// TODO
-	// nt_h.OptionalHeader.BaseOfCode							= 0x1000;  // dynamic, normally same as AddressOfEntryPoint
+	//this->m_ntHeaders64.OptionalHeader.BaseOfCode							= 0x1000;  // dynamic, normally same as AddressOfEntryPoint
 	this->m_ntHeaders64.OptionalHeader.ImageBase = 0x400000;			   // leave it
 	this->m_ntHeaders64.OptionalHeader.SectionAlignment = 0x1000;		   // dynamic
 	this->m_ntHeaders64.OptionalHeader.FileAlignment = 0x200;			   // dynamic
@@ -512,6 +512,7 @@ int32_t PEFile::AddSection(std::string_view name, DWORD size, bool isExecutable)
     {
         newSectionHeader.Characteristics = IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE;
 		this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint = newSectionHeader.VirtualAddress;
+		this->m_ntHeaders64.OptionalHeader.BaseOfCode = this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint;
 		std::cout << "!!!!isExecutable" << this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint << std::endl;
     }
 
