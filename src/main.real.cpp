@@ -44,17 +44,17 @@ enum class PEResult : uint32_t
 // Could be in theory 65535, on XP only 96 (see https://stackoverflow.com/questions/17466916/whats-the-maximum-number-of-sections-a-pe-can-have) 
 constexpr auto MAX_SECTIONS = 64;
 constexpr auto IMPORT_SECTION_NAME = ".idata";
-constexpr auto RESERV_SECTION_NAME = "@.reserv";
+// constexpr auto RESERV_SECTION_NAME = "@.reserv";
 
 constexpr auto TEXT_SECTION_NAME = "@.text";
 constexpr auto DATA_SECTION_NAME = "@.data";
 
 
-struct PE_DOS_STUB
-{
-    int8_t* RawData;
-    DWORD Size;
-};
+// struct PE_DOS_STUB
+// {
+//     uint8_t* RawData;
+//     DWORD Size;
+// };
 
 struct PE_IMPORT_FUNCTION_ENTRY
 {
@@ -101,10 +101,10 @@ private:
     /***/
 
 
-    // PE_DOS_STUB m_dosStub;
+    
 	
     IMAGE_SECTION_HEADER m_sectionTable[MAX_SECTIONS];
-    PE_SECTION_ENTRY m_reservedData;
+    // PE_SECTION_ENTRY m_reservedData;
     PE_SECTION_ENTRY m_sections[MAX_SECTIONS];
     PE_IMPORT_DLL_ENTRY m_additionalImports;
 
@@ -124,7 +124,7 @@ private:
     DWORD RvaToOffset(DWORD rva);
     DWORD OffsetToRVA(DWORD offset);
 
-    void ComputeReservedData();
+    // void ComputeReservedData();
     void ComputeHeaders();
     void ComputeSectionTable();
 };
@@ -140,7 +140,7 @@ PEFile::PEFile()
 
 void PEFile::Commit()
 {
-    ComputeReservedData();
+    // ComputeReservedData();
     ComputeHeaders();
     ComputeSectionTable();
 }
@@ -175,11 +175,82 @@ PEResult PEFile::SaveToFile(std::filesystem::path filePath)
     }
 
     file.write((char*)&this->m_dosHeader, sizeof(IMAGE_DOS_HEADER));
-    //file.write((char*)m_dosStub.RawData, m_dosStub.Size);
-    WritePadding(file, m_dosHeader.e_lfanew - sizeof(IMAGE_DOS_HEADER)/* - m_dosStub.Size*/);
+    //file.write((char*)&this->m_dosStub.RawData, m_dosStub.Size);
+
+	std::vector<uint8_t> stub = {
+	0x0e,
+	0x1f,
+	0xba,
+	0x0e,
+	0x00,
+	0xb4,
+	0x09,
+	0xcd,
+	0x21,
+	0xb8,
+	0x01,
+	0x4c,
+	0xcd,
+	0x21,
+	0x54,
+	0x68,
+	0x69,
+	0x73,
+	0x20,
+	0x70,
+	0x72,
+	0x6f,
+	0x67,
+	0x72,
+	0x61,
+	0x6d,
+	0x20,
+	0x63,
+	0x61,
+	0x6e,
+	0x6e,
+	0x6f,
+	0x74,
+	0x20,
+	0x62,
+	0x65,
+	0x20,
+	0x72,
+	0x75,
+	0x6e,
+	0x20,
+	0x69,
+	0x6e,
+	0x20,
+	0x44,
+	0x4f,
+	0x53,
+	0x20,
+	0x6d,
+	0x6f,
+	0x64,
+	0x65,
+	0x2e,
+	0x0d,
+	0x0d,
+	0x0a,
+	0x24,
+	0x00,
+	0x00,
+	0x00,
+	0x00,
+	0x00,
+	0x00,
+	0x00
+	};
+	
+	std::for_each(stub.begin(), stub.end(), [&file](uint8_t &n){ file.write((char*)&n, 1); });
+	
+    //WritePadding(file, m_dosHeader.e_lfanew - sizeof(IMAGE_DOS_HEADER) - m_dosStub.Size);
+
     file.write((char*)&m_ntHeaders64, sizeof(IMAGE_NT_HEADERS));
     file.write((char*)&m_sectionTable, m_ntHeaders64.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
-    file.write((char*)m_reservedData.RawData, m_reservedData.Size);
+    //file.write((char*)m_reservedData.RawData, m_reservedData.Size);
 
 	std::cout << "!!!!f" << std::endl;
     for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
@@ -187,9 +258,6 @@ PEResult PEFile::SaveToFile(std::filesystem::path filePath)
         WritePadding(file, m_sectionTable[i].PointerToRawData - file.tellp());
         file.write((char*)m_sections[i].RawData, m_sections[i].Size);
     }
-
-
-	
 	
 	std::cout << "!!!!g" << std::endl;
     return PEResult::Success;
@@ -205,6 +273,7 @@ void PEFile::New() {
 	this->m_dosHeader.e_minalloc = 0x0000;
 	this->m_dosHeader.e_maxalloc = 0xFFFF;
 	this->m_dosHeader.e_ss = 0x0000;
+	
 	this->m_dosHeader.e_sp = 0x00B8;
 	this->m_dosHeader.e_csum = 0x0000;
 	this->m_dosHeader.e_ip = 0x0000;
@@ -213,10 +282,16 @@ void PEFile::New() {
 	this->m_dosHeader.e_ovno = 0x0000;
 	this->m_dosHeader.e_oemid = 0x0000;
 	this->m_dosHeader.e_oeminfo = 0x0000;
-	this->m_dosHeader.e_lfanew = sizeof(IMAGE_DOS_HEADER); // The file offset of the PE header, relative to the beginning of the file.
+	this->m_dosHeader.e_lfanew = 0x080;// The file offset of the PE header, relative to the beginning of the file.
+
+	std::cout << "e_lfanew = sizeof(IMAGE_DOS_HEADER)" << sizeof(IMAGE_DOS_HEADER) << std::endl;
 
 	std::cout << "PE -> DOS Header -> Created" << std::endl;
 
+	
+	// memset(&this->m_dosStub.RawData, 0, stub.size());
+    // memcpy(&this->m_dosStub.RawData, stub.data(), stub.size());
+	// this->m_dosStub.Size = stub.size();
 
 	memset(&this->m_ntHeaders64, 0, sizeof(IMAGE_NT_HEADERS64));
 	this->m_ntHeaders64.Signature = IMAGE_NT_SIGNATURE;
@@ -337,11 +412,14 @@ void PEFile::BuildImportTable()
     // memcpy(m_sections[index].RawData, m_loadedPeFile + oldImportTableOffset, currentImportDllsSize);
 
     // Copy new imports into the import section
+
+	std::cout << "m_sectionTable[index].VirtualAddress" << m_sectionTable[index].VirtualAddress << std::endl;
     char* newImportsData = BuildAdditionalImports(m_sectionTable[index].VirtualAddress/* + currentImportDllsSize*/);
     memcpy(m_sections[index].RawData/* + currentImportDllsSize*/, newImportsData, newImportsSize);
+	std::cout << "m_sections[index].Size" << m_sections[index].Size << std::endl;
 
     m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = m_sectionTable[index].VirtualAddress;
-    m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = m_sectionTable[index].SizeOfRawData;
+    m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = m_sectionTable[index].Misc.VirtualSize;
     m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].VirtualAddress = 0;
     m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].Size = 0;
 	
@@ -374,6 +452,8 @@ char* PEFile::BuildAdditionalImports(DWORD baseRVA)
         memset(&importDesc, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
         importDesc.OriginalFirstThunk = baseRVA + offsetFunctions;
         importDesc.FirstThunk = baseRVA + offsetFunctions + sizeFunctions;
+		std::cout << "baseRVA: " << baseRVA << std::endl;
+		std::cout << "importDesc.FirstThunk: " << importDesc.FirstThunk << std::endl;
         importDesc.Name = baseRVA + offsetStrings;
         memcpy(buffer + offsetStrings, importDll->Name, strlen(importDll->Name));
         offsetStrings += AlignNumber((DWORD)strlen(importDll->Name) + 1, 2);
@@ -520,10 +600,10 @@ int32_t PEFile::AddSection(std::string_view name, DWORD size, bool isExecutable)
     newSection.Size = sectionSize;
 
     m_ntHeaders64.FileHeader.NumberOfSections++;
-    if (m_reservedData.Size > 0)
-    {
-        m_reservedData.Size -= sizeof(IMAGE_SECTION_HEADER);
-    }
+    // if (m_reservedData.Size > 0)
+    // {
+    //     m_reservedData.Size -= sizeof(IMAGE_SECTION_HEADER);
+    // }
 
     // Return the new section index
     return m_ntHeaders64.FileHeader.NumberOfSections - 1;
@@ -544,41 +624,41 @@ DWORD PEFile::OffsetToRVA(DWORD offset)
     return 0;
 }
 
-void PEFile::ComputeReservedData()
-{
-	std::cout << "!!!!bv" << std::endl;
-    DWORD dirIndex = 0;
-    for (dirIndex = 0; dirIndex < m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes; dirIndex++)
-    {
-        if (m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress > 0 &&
-            m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress >= m_reservedData.Offset &&
-            m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress < m_reservedData.Size)
-        {
-            break;
-        }
-    }
+// void PEFile::ComputeReservedData()
+// {
+// 	std::cout << "!!!!bv" << std::endl;
+//     DWORD dirIndex = 0;
+//     for (dirIndex = 0; dirIndex < m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes; dirIndex++)
+//     {
+//         if (m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress > 0 &&
+//             m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress >= m_reservedData.Offset &&
+//             m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress < m_reservedData.Size)
+//         {
+//             break;
+//         }
+//     }
 
-    if (dirIndex == m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes)
-    {
-        return;
-    }
+//     if (dirIndex == m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes)
+//     {
+//         return;
+//     }
 
-    int sectionIndex = AddSection(RESERV_SECTION_NAME, m_reservedData.Size, false);
-    memcpy(m_sections[sectionIndex].RawData, m_reservedData.RawData, m_reservedData.Size);
+//     int sectionIndex = AddSection(RESERV_SECTION_NAME, m_reservedData.Size, false);
+//     memcpy(m_sections[sectionIndex].RawData, m_reservedData.RawData, m_reservedData.Size);
 
-    for (dirIndex = 0; dirIndex < m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes; dirIndex++)
-    {
-        if (m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress > 0 &&
-            m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress >= m_reservedData.Offset &&
-            m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress < m_reservedData.Size)
-        {
-            m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress += m_sectionTable[sectionIndex].VirtualAddress - m_reservedData.Offset;
-        }
-    }
+//     for (dirIndex = 0; dirIndex < m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes; dirIndex++)
+//     {
+//         if (m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress > 0 &&
+//             m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress >= m_reservedData.Offset &&
+//             m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress < m_reservedData.Size)
+//         {
+//             m_ntHeaders64.OptionalHeader.DataDirectory[dirIndex].VirtualAddress += m_sectionTable[sectionIndex].VirtualAddress - m_reservedData.Offset;
+//         }
+//     }
 
-    m_reservedData.Size = 0;
-	std::cout << "!!!!bvc" << std::endl;
-}
+//     m_reservedData.Size = 0;
+// 	std::cout << "!!!!bvc" << std::endl;
+// }
 
 void PEFile::ComputeHeaders()
 {
@@ -692,39 +772,59 @@ int main()
 	pe.New();
 
 	 // Add the exported functions of your DLL
-    const char* functions[] = { "MessageBox" };
+    const char* functions[] = { "GetStdHandle", "WriteFile", "ExitProcess" };
 
     // Add the import to the PE file
-    pe.AddImport("user32.dll", (char**)functions, 1);
+    pe.AddImport("kernel32.dll", (char**)functions, 3);
     std::cout << "Added imports to PE file" << std::endl;
 
 	int textSectionIndex = pe.AddSection(TEXT_SECTION_NAME, pe.GetFileAlignment(), true);
 	std::cout << "!!!!a" << std::endl;
 	auto codeSection = pe.GetSectionByIndex(textSectionIndex);
 	
+	std::cout << " sizeof(ULONGLONG)" <<  sizeof(ULONGLONG) << std::endl;
+
+		// 0x48, 0x83, 0xC4, 0x48,					  // add rsp, 0x48; Stack unwind
+		// 0x48, 0x31, 0xC9,						  // xor rcx, rcx; hWnd
+		// 0x48, 0xC7, 0xC2, 0x10, 0x20, 0x40, 0x00, // mov rdx, Message(0x402010) (offset 10)
+		// 0x49, 0xC7, 0xC0, 0x00, 0x20, 0x40, 0x00, // mov r8, Title(0x402000) (offset 17)
+		// 0x4D, 0x31, 0xC9,						  // xor r9, r9; MB_OK
+		// 0x48, 0xC7, 0xC0, 0x5C, 0x30, 0x40, 0x00, // mov rax, MessageBoxA address(0x40305c) (offset 27)
+		// 0xFF, 0x10,								  // call[rax]; MessageBoxA(hWnd, Message, Title, MB_OK)
+		// // 0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
+		// // 0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
+		// // 0xFF, 0x10,					// call[rax]; ExitProcess(0)
+		// 0xC3 // ret; Never reached
+
 	std::vector<uint8_t> code = {
-		0x48, 0x83, 0xC4, 0x48,					  // add rsp, 0x48; Stack unwind
-		0x48, 0x31, 0xC9,						  // xor rcx, rcx; hWnd
-		0x48, 0xC7, 0xC2, 0x10, 0x20, 0x40, 0x00, // mov rdx, Message(0x402010) (offset 10)
-		0x49, 0xC7, 0xC0, 0x00, 0x20, 0x40, 0x00, // mov r8, Title(0x402000) (offset 17)
-		0x4D, 0x31, 0xC9,						  // xor r9, r9; MB_OK
-		0x48, 0xC7, 0xC0, 0x5C, 0x30, 0x40, 0x00, // mov rax, MessageBoxA address(0x40305c) (offset 27)
-		0xFF, 0x10,								  // call[rax]; MessageBoxA(hWnd, Message, Title, MB_OK)
-		// 0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
-		// 0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
-		// 0xFF, 0x10,					// call[rax]; ExitProcess(0)
-		0xC3 // ret; Never reached
+		0x48, 0x83, 0xEC, 0x08,
+		0x48, 0x83, 0xEC, 0x20,
+		0xB9, 0xF5, 0xFF, 0xFF, 0xFF,
+		0xE8, 0x0E, 0x20, 0x0, 0x0,
+		0x48, 0x89, 0x05, 0xFB, 0x0F, 0x0, 0x0,
+		0x48, 0x83, 0xC4, 0x20,
+		0x48, 0x83, 0xEC, 0x30,
+		0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x0, 0x0,
+		0x48, 0x8D, 0x15, 0xD1, 0x0F, 0x0, 0x0,
+		0x41, 0xB8, 0x14, 0x0, 0x0, 0x0,
+		0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x0, 0x0,
+		0x48, 0xC7, 0x44, 0x24, 0x20, 0x0, 0x0, 0x0, 0x0,
+		0xE8, 0xDC, 0x1F, 0x0, 0x0,
+		0x48, 0x83, 0xC4, 0x30,
+		0x31, 0xC9,
+		0xE8, 0xD7, 0x1F, 0x0, 0x0
 	};
+
     memcpy(codeSection.RawData, code.data(), code.size());
+	codeSection.Size = code.size();
 
 
-
-	// int dataSectionIndex = pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
-	// std::vector<uint8_t> data = {
-	// 	0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34, 0x0D, 0x0A
-	// };
-	// auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
-	// memcpy(dataSection.RawData, data.data(), data.size());
+	int dataSectionIndex = pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
+	std::vector<uint8_t> data = {
+		0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34, 0x0D, 0x0A
+	};
+	auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
+	memcpy(dataSection.RawData, data.data(), data.size());
 	
 	std::cout << "!!!!b" << std::endl;
 
@@ -1143,25 +1243,6 @@ int main()
 	// // 	0x48, 0xC7, 0xC0, 0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
 	// // 	0xFF, 0x10,					// call[rax]; ExitProcess(0)
 	// // 	0xC3						// ret; Never reached
-	// // };
-
-	// // std::vector<uint8_t> code = {
-	// // 	0x48, 0x83, 0xEC, 0x08,
-	// // 	0x48, 0x83, 0xEC, 0x20,
-	// // 	0xB9, 0xF5, 0xFF, 0xFF, 0xFF,
-	// // 	0xE8, 0x0E, 0x20, 0x0, 0x0,
-	// // 	0x48, 0x89, 0x05, 0xFB, 0x0F, 0x0, 0x0,
-	// // 	0x48, 0x83, 0xC4, 0x20,
-	// // 	0x48, 0x83, 0xEC, 0x30,
-	// // 	0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x0, 0x0,
-	// // 	0x48, 0x8D, 0x15, 0xD1, 0x0F, 0x0, 0x0,
-	// // 	0x41, 0xB8, 0x14, 0x0, 0x0, 0x0,
-	// // 	0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x0, 0x0,
-	// // 	0x48, 0xC7, 0x44, 0x24, 0x20, 0x0, 0x0, 0x0, 0x0,
-	// // 	0xE8, 0xDC, 0x1F, 0x0, 0x0,
-	// // 	0x48, 0x83, 0xC4, 0x30,
-	// // 	0x31, 0xC9,
-	// // 	0xE8, 0xD7, 0x1F, 0x0, 0x0
 	// // };
 
 	// std::for_each(code.begin(), code.end(), [&pe_writter](uint8_t &n){ pe_writter.put(n); });
