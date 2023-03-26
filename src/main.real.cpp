@@ -75,6 +75,18 @@ struct PE_SECTION_ENTRY
 	DWORD Size;
 };
 
+struct DLL_IAT_ADDRESS {
+	std::string dll_name;
+	std::map<std::string, ULONGLONG> iat_map;
+};
+/*
+    std::string a = "Console Message";
+    std::vector<int> hex;
+    std::transform(a.cbegin(), a.cend(), std::back_inserter(hex),
+                   [](char const &c) { return static_cast<int>(c); });
+
+    std::cout << std::hex << hex.at(0);
+*/
 class PEFile
 {
 public:
@@ -102,6 +114,8 @@ private:
 	// PE_SECTION_ENTRY m_reservedData;
 	PE_SECTION_ENTRY m_sections[MAX_SECTIONS];
 	PE_IMPORT_DLL_ENTRY m_additionalImports;
+
+	DLL_IAT_ADDRESS dll_iat_address;
 
 	int8_t *m_loadedPeFile;
 	// PEResult ReadAll();
@@ -381,8 +395,9 @@ char *PEFile::BuildAdditionalImports(DWORD baseRVA)
 		memset(&importDesc, 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
 		importDesc.OriginalFirstThunk = baseRVA + offsetFunctions;
 		importDesc.FirstThunk = baseRVA + offsetFunctions + sizeFunctions;
-		std::cout << "baseRVA: " << baseRVA << std::endl;
-		std::cout << "importDesc.FirstThunk: " << importDesc.FirstThunk << std::endl;
+
+		dll_iat_address.dll_name = string(importDll->Name);
+		
 		importDesc.Name = baseRVA + offsetStrings;
 		memcpy(buffer + offsetStrings, importDll->Name, strlen(importDll->Name));
 		offsetStrings += AlignNumber((DWORD)strlen(importDll->Name) + 1, 2);
@@ -391,8 +406,14 @@ char *PEFile::BuildAdditionalImports(DWORD baseRVA)
 		offsetDlls += sizeof(IMAGE_IMPORT_DESCRIPTOR);
 
 		importFunction = importDll->Functions;
-		while (importFunction != nullptr)
-		{
+		for (int i = 0; importFunction != nullptr; i++)
+		{	
+			const auto function_name = string(importFunction->Name);
+			const auto iat_address = this->m_ntHeaders64.OptionalHeader.ImageBase + importDesc.FirstThunk + (i * sizeof(ULONGLONG) );
+			dll_iat_address.iat_map[function_name] = iat_address;
+
+			std::cout << "dll_iat_address.dll_name: " << dll_iat_address.dll_name << "function_name: " << function_name <<  "iat_address in (hex): " << std::hex << iat_address << std::endl;
+
 			memset(&importThunk, 0, sizeof(IMAGE_THUNK_DATA64));
 			if (importFunction->Id != 0)
 			{
@@ -400,8 +421,6 @@ char *PEFile::BuildAdditionalImports(DWORD baseRVA)
 			}
 			else
 			{
-				std::cout << "u1.Function location is something like: " << baseRVA + offsetStrings << std::endl;
-
 				importThunk.u1.AddressOfData = baseRVA + offsetStrings;
 				memcpy(buffer + offsetStrings + 2, importFunction->Name, strlen(importFunction->Name));
 				offsetStrings += 2 + AlignNumber((DWORD)strlen(importFunction->Name) + 1, 2);
@@ -718,23 +737,25 @@ int main()
 	// // 0xFF, 0x10,					// call[rax]; ExitProcess(0)
 	// 0xC3 // ret; Never reached
 
+// Number(iat_address_in_hex - next code line address _in_hex).toString(16)
 	std::vector<uint8_t> code = {
 		0x48, 0x83, 0xEC, 0x08,
 		0x48, 0x83, 0xEC, 0x20,
 		0xB9, 0xF5, 0xFF, 0xFF, 0xFF,
-		0xE8, 0x0E, 0x20, 0x0, 0x0,
-		0x48, 0x89, 0x05, 0xFB, 0x0F, 0x0, 0x0,
+		0xE8, 0x36, 0x20, 0x00, 0x00,
+		0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,
 		0x48, 0x83, 0xC4, 0x20,
 		0x48, 0x83, 0xEC, 0x30,
-		0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x0, 0x0,
-		0x48, 0x8D, 0x15, 0xD1, 0x0F, 0x0, 0x0,
-		0x41, 0xB8, 0x14, 0x0, 0x0, 0x0,
-		0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x0, 0x0,
-		0x48, 0xC7, 0x44, 0x24, 0x20, 0x0, 0x0, 0x0, 0x0,
-		0xE8, 0xDC, 0x1F, 0x0, 0x0,
+		0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,
+		0x48, 0x8D, 0x15, 0xD1, 0x0F, 0x00, 0x00,
+		0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,
+		0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,
+		0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,
+		0xE8, 0x06, 0x20, 0x00, 0x00,  //2006 
 		0x48, 0x83, 0xC4, 0x30,
 		0x31, 0xC9,
-		0xE8, 0xD7, 0x1F, 0x0, 0x0};
+		0xE8, 0x03, 0x20, 0x00, 0x00  //2003
+	};
 
 	memcpy(codeSection.RawData, code.data(), code.size());
 	codeSection.Size = code.size();
