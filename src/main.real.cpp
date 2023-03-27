@@ -11,13 +11,18 @@
 #include <algorithm>
 #include <iterator>
 #include <filesystem>
-
+#include <string>
 #include <Windows.h>
 #include <winnt.h>
 #include <stdint.h>
 #include <math.h>
 #include <fstream>
 #include <iostream>
+#include <fstream>
+#include <iostream>
+#include <algorithm>
+#include <iterator>
+#include <regex>
 
 using namespace std;
 
@@ -706,9 +711,51 @@ the loader might not load the image at its preferred location.
 
 // 	memset(&import_table[1], 0, sizeof(IMAGE_IMPORT_DESCRIPTOR));
 // }
+string readFile(const string &fileName) {
+	ifstream t(fileName);
+	stringstream buffer;
+	buffer << t.rdbuf();
+	return buffer.str();
+}
+
+std::vector<std::string> parseFile(const string &fileName)
+{
+	std::vector<std::string> cout_content_list;
+
+    //const std::string text = "standard.output(\"1\");standard.output(\"2\");";
+	const std::string text = readFile(fileName);
+
+    const std::regex ws_re("\\s*;\\s*"); // whitespace
+
+    const std::regex a = std::regex("standard\\.output\\(\"([^\"]+)\"\\)");
+    
+    auto b = std::sregex_token_iterator(text.begin(), text.end(), ws_re, -1);
+    const std::sregex_token_iterator end;
+    std::smatch base_match;
+
+    while (b != end)
+    {
+        const std::string statement = *b++;
+        std::regex_match(statement, base_match, a);
+        std::cout << statement;
+
+        if (base_match.size() == 2)
+        {
+            std::ssub_match base_sub_match = base_match[1];
+            std::string base = base_sub_match.str();
+            //std::cout << " has a base of " << base;
+			cout_content_list.push_back(base);
+        }
+        std::cout << std::endl;
+    }
+	return cout_content_list;
+}
 
 int main()
 {
+	std::vector<std::string> cout_content_list = parseFile("test.txt");
+	// std::cout << cout_content_list.at(0) << std::endl;
+
 	PEFile pe;
 	pe.New();
 
