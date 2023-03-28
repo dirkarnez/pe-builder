@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <windows.h>
+#include <numeric>
 #include <winnt.h>
 #include <iostream>
 #include <fstream>
@@ -99,8 +100,8 @@ public:
 		hex_for_data_section.push_back(0x0d); 	// \r
 		hex_for_data_section.push_back(0x0a);	// \n
 
-		std::for_each(hex_for_data_section.cbegin(), hex_for_data_section.cend(), [](const uint8_t &n)
-					{     std::cout << std::hex << static_cast<int>(n) << " " ; });
+		// std::for_each(hex_for_data_section.cbegin(), hex_for_data_section.cend(), [](const uint8_t &n)
+		// 			{     std::cout << std::hex << static_cast<int>(n) << " " ; });
 	}
 };
 
@@ -197,7 +198,7 @@ PEResult PEFile::SaveToFile(std::filesystem::path filePath)
 	std::ofstream file(filePath, std::ios::binary | std::ios::ate);
 	if (!file)
 	{
-		std::cout << "!!!!e" << std::endl;
+		//std::cout << "!!!!e" << std::endl;
 		return PEResult::ErrorSaveFileCreate;
 	}
 
@@ -217,14 +218,14 @@ PEResult PEFile::SaveToFile(std::filesystem::path filePath)
 	file.write((char *)&m_sectionTable, m_ntHeaders64.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
 	// file.write((char*)m_reservedData.RawData, m_reservedData.Size);
 
-	std::cout << "!!!!f" << std::endl;
+	// std::cout << "!!!!f" << std::endl;
 	for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
 	{
 		WritePadding(file, m_sectionTable[i].PointerToRawData - file.tellp());
 		file.write((char *)m_sections[i].RawData, m_sections[i].Size);
 	}
 
-	std::cout << "!!!!g" << std::endl;
+	// std::cout << "!!!!g" << std::endl;
 	return PEResult::Success;
 }
 
@@ -250,9 +251,9 @@ void PEFile::New()
 	this->m_dosHeader.e_oeminfo = 0x0000;
 	this->m_dosHeader.e_lfanew = 0x080; // The file offset of the PE header, relative to the beginning of the file.
 
-	std::cout << "e_lfanew = sizeof(IMAGE_DOS_HEADER)" << sizeof(IMAGE_DOS_HEADER) << std::endl;
+	// std::cout << "e_lfanew = sizeof(IMAGE_DOS_HEADER)" << sizeof(IMAGE_DOS_HEADER) << std::endl;
 
-	std::cout << "PE -> DOS Header -> Created" << std::endl;
+	// std::cout << "PE -> DOS Header -> Created" << std::endl;
 
 	memset(&this->m_ntHeaders64, 0, sizeof(IMAGE_NT_HEADERS64));
 	this->m_ntHeaders64.Signature = IMAGE_NT_SIGNATURE;
@@ -307,8 +308,8 @@ void PEFile::New()
 	this->m_ntHeaders64.OptionalHeader.LoaderFlags = 0x00000000;							   // leave it
 	this->m_ntHeaders64.OptionalHeader.NumberOfRvaAndSizes = IMAGE_NUMBEROF_DIRECTORY_ENTRIES; // leave it
 
-	std::cout << "SectionAlignment" << this->m_ntHeaders64.OptionalHeader.SectionAlignment << std::endl;
-	std::cout << "PE -> PE Header -> Created" << std::endl;
+	// std::cout << "SectionAlignment" << this->m_ntHeaders64.OptionalHeader.SectionAlignment << std::endl;
+	// std::cout << "PE -> PE Header -> Created" << std::endl;
 }
 
 void PEFile::AddImport(std::string_view dllName, char **functions, int functionCount)
@@ -347,7 +348,7 @@ void PEFile::AddImport(std::string_view dllName, char **functions, int functionC
 
 void PEFile::BuildImportTable()
 {
-	std::cout << "!!!!qwrew" << std::endl;
+	// std::cout << "!!!!qwrew" << std::endl;
 	// Calculate new import size
 	DWORD sizeDlls = 0;
 	DWORD sizeFunctions = 0;
@@ -365,7 +366,7 @@ void PEFile::BuildImportTable()
 
 	// Overwrite import section
 	int index = AddSection(IMPORT_SECTION_NAME, /*currentImportDllsSize +*/ newImportsSize, false);
-	std::cout << "!!!!index" << index << std::endl;
+	// std::cout << "!!!!index" << index << std::endl;
 
 	// Copy old imports
 	// DWORD oldImportTableRVA = m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
@@ -374,17 +375,17 @@ void PEFile::BuildImportTable()
 
 	// Copy new imports into the import section
 
-	std::cout << "m_sectionTable[index].VirtualAddress" << m_sectionTable[index].VirtualAddress << std::endl;
+	// std::cout << "m_sectionTable[index].VirtualAddress" << m_sectionTable[index].VirtualAddress << std::endl;
 	char *newImportsData = BuildAdditionalImports(m_sectionTable[index].VirtualAddress /* + currentImportDllsSize*/);
 	memcpy(m_sections[index].RawData /* + currentImportDllsSize*/, newImportsData, newImportsSize);
-	std::cout << "m_sections[index].Size" << m_sections[index].Size << std::endl;
+	// std::cout << "m_sections[index].Size" << m_sections[index].Size << std::endl;
 
 	m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = m_sectionTable[index].VirtualAddress;
 	m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = m_sectionTable[index].Misc.VirtualSize;
 	m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].VirtualAddress = 0;
 	m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].Size = 0;
 
-	std::cout << "!!!!iu" << std::endl;
+	// std::cout << "!!!!iu" << std::endl;
 }
 
 char *PEFile::BuildAdditionalImports(DWORD baseRVA)
@@ -430,7 +431,7 @@ char *PEFile::BuildAdditionalImports(DWORD baseRVA)
 			const auto iat_address = this->m_ntHeaders64.OptionalHeader.ImageBase + importDesc.FirstThunk + (i * sizeof(ULONGLONG) );
 			dll_iat_address.iat_map[function_name] = iat_address;
 
-			std::cout << "dll_iat_address.dll_name: " << dll_iat_address.dll_name << "function_name: " << function_name <<  "iat_address in (hex): " << std::hex << iat_address << std::endl;
+			// std::cout << "dll_iat_address.dll_name: " << dll_iat_address.dll_name << "function_name: " << function_name <<  "iat_address in (hex): " << std::hex << iat_address << std::endl;
 
 			memset(&importThunk, 0, sizeof(IMAGE_THUNK_DATA64));
 			if (importFunction->Id != 0)
@@ -558,7 +559,7 @@ int32_t PEFile::AddSection(std::string_view name, DWORD size, bool isExecutable)
 		newSectionHeader.Characteristics = IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE;
 		this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint = newSectionHeader.VirtualAddress;
 		this->m_ntHeaders64.OptionalHeader.BaseOfCode = this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint;
-		std::cout << "!!!!isExecutable" << this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint << std::endl;
+		// std::cout << "!!!!isExecutable" << this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint << std::endl;
 	}
 
 	newSection.RawData = (int8_t *)GlobalAlloc(GMEM_FIXED | GMEM_ZEROINIT, sectionSize);
@@ -626,7 +627,7 @@ DWORD PEFile::OffsetToRVA(DWORD offset)
 
 void PEFile::ComputeHeaders()
 {
-	std::cout << "!!!!uy" << std::endl;
+	// std::cout << "!!!!uy" << std::endl;
 	m_ntHeaders64.OptionalHeader.SizeOfHeaders = AlignNumber(m_dosHeader.e_lfanew + m_ntHeaders64.FileHeader.SizeOfOptionalHeader +
 																 m_ntHeaders64.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER),
 															 m_ntHeaders64.OptionalHeader.FileAlignment);
@@ -640,12 +641,12 @@ void PEFile::ComputeHeaders()
 
 	m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT].VirtualAddress = 0;
 	m_ntHeaders64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT].Size = 0;
-	std::cout << "!!!!vc" << std::endl;
+	// std::cout << "!!!!vc" << std::endl;
 }
 
 void PEFile::ComputeSectionTable()
 {
-	std::cout << "!!!!rr" << std::endl;
+	// std::cout << "!!!!rr" << std::endl;
 	DWORD offset = m_ntHeaders64.OptionalHeader.SizeOfHeaders;
 	for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
 	{
@@ -654,7 +655,7 @@ void PEFile::ComputeSectionTable()
 		m_sectionTable[i].PointerToRawData = offset;
 		offset += m_sectionTable[i].SizeOfRawData;
 	}
-	std::cout << "!!!!pp" << std::endl;
+	// std::cout << "!!!!pp" << std::endl;
 }
 
 // template <typename Ptr>
@@ -842,7 +843,7 @@ int main()
 {
 	std::vector<std::string> cout_content_list = parseFile("main.hahahaha");
 
-	std::cout << cout_content_list.size() << std::endl;
+	//std::cout << cout_content_list.size() << std::endl;
 
 	EXE_STRING_TO_HEX_AND_ADDRESS exe_string_to_hex_and_address;
 
@@ -883,7 +884,7 @@ int main()
 	const ULONGLONG text_starting = 0x401000;
 	const ULONGLONG data_starting = 0x402000;
 
-	uint_t i = 0;
+	uint8_t i = 0;
 	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(),
 	[&](const std::string& elem){
 		std::vector<uint8_t> elem_code_1 = {	
@@ -897,7 +898,7 @@ int main()
 
 		const ULONGLONG absolute_location_to_store_standard_handle = 0x402030;
 		ULONGLONG relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
-		std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
+		//std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
 
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
 		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
@@ -913,7 +914,7 @@ int main()
 		code.insert(code.end(), elem_code_2.begin(), elem_code_2.end());
 
 		relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
-		std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
+		//std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
 		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
 		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_standard_handle));
@@ -931,7 +932,7 @@ int main()
 		});
 
 		ULONGLONG relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
-		std::cout << std::hex << relative_location_to_store_element << std::endl;
+		//std::cout << std::hex << relative_location_to_store_element << std::endl;
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_element));
 		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_element));
 		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_element));
@@ -955,8 +956,8 @@ int main()
 		code.insert(code.end(), elem_code_5.begin(), elem_code_5.end());
 
 		const ULONGLONG absolute_location_to_store_number_of_bytes_written = 0x402040;
-		relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
-		std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
+		ULONGLONG relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
+		//std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
 		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
 		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
@@ -996,13 +997,13 @@ int main()
 
 	// Add the import to the PE file
 	pe.AddImport("kernel32.dll", (char **)functions, 3);
-	std::cout << "Added imports to PE file" << std::endl;
+	//std::cout << "Added imports to PE file" << std::endl;
 
 	int textSectionIndex = pe.AddSection(TEXT_SECTION_NAME, pe.GetFileAlignment(), true);
-	std::cout << "!!!!a" << std::endl;
+	//std::cout << "!!!!a" << std::endl;
 	auto codeSection = pe.GetSectionByIndex(textSectionIndex);
 
-	std::cout << " sizeof(ULONGLONG)" << sizeof(ULONGLONG) << std::endl;
+	//std::cout << " sizeof(ULONGLONG)" << sizeof(ULONGLONG) << std::endl;
 
 	// 0x48, 0x83, 0xC4, 0x48,					  // add rsp, 0x48; Stack unwind
 	// 0x48, 0x31, 0xC9,						  // xor rcx, rcx; hWnd
@@ -1037,10 +1038,11 @@ int main()
 	auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
 	memcpy(dataSection.RawData, exe_string_to_hex_and_address.hex_for_data_section.data(), exe_string_to_hex_and_address.hex_for_data_section.size());
 
-	std::cout << "!!!!b" << std::endl;
+	// std::cout << "!!!!b" << std::endl;
 
-	pe.SaveToFile("dev.exe");
-	std::cout << "!!!!c" << std::endl;
+	pe.SaveToFile("main.exe");
+
+	std::cout << "Compiled with 0 Errors." << std::endl;
 
 	// // The Section Header(s) after the NT Header
 	// // auto pSH = PIMAGE_SECTION_HEADER(ULONGLONG(&nt_h) + sizeof(IMAGE_NT_HEADERS64));
@@ -1474,8 +1476,6 @@ int main()
 	// Close PE File
 	// pe_writter.close();
 
-	printf("[Information] PE File packed with 0 Errors.");
 	cin.get();
-
 	return EXIT_SUCCESS;
 }
