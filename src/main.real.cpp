@@ -84,14 +84,26 @@ struct DLL_IAT_ADDRESS {
 	std::string dll_name;
 	std::map<std::string, ULONGLONG> iat_map;
 };
-/*
-    std::string a = "Console Message";
-    std::vector<int> hex;
-    std::transform(a.cbegin(), a.cend(), std::back_inserter(hex),
-                   [](char const &c) { return static_cast<int>(c); });
 
-    std::cout << std::hex << hex.at(0);
-*/
+class EXE_STRING_TO_HEX_AND_ADDRESS {
+private:
+	std::map<std::string, ULONGLONG> string_to_file_offset;
+public: 
+	std::vector<uint8_t> hex_for_data_section;
+	void convert_and_store(const std::string& str) {
+		//std::string a = "Console Message\r\n";
+		std::vector<int> hex;
+		std::transform(str.cbegin(), str.cend(), std::back_inserter(hex), [](char const &c) { return static_cast<int>(c); });
+
+		hex_for_data_section.insert(hex_for_data_section.end(), hex.begin(), hex.end());
+		hex_for_data_section.push_back(0x0d); 	// \r
+		hex_for_data_section.push_back(0x0a);	// \n
+
+		std::for_each(hex_for_data_section.cbegin(), hex_for_data_section.cend(), [](const uint8_t &n)
+					{     std::cout << std::hex << static_cast<int>(n) << " " ; });
+	}
+};
+
 class PEFile
 {
 public:
@@ -196,6 +208,7 @@ PEResult PEFile::SaveToFile(std::filesystem::path filePath)
 		0x69, 0x73, 0x20, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61, 0x6d, 0x20, 0x63, 0x61, 0x6e, 0x6e, 0x6f,
 		0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6e, 0x20, 0x69, 0x6e, 0x20, 0x44, 0x4f, 0x53, 0x20,
 		0x6d, 0x6f, 0x64, 0x65, 0x2e, 0x0d, 0x0d, 0x0a, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
 
 	std::for_each(stub.begin(), stub.end(), [&file](uint8_t &n)
 				  { file.write((char *)&n, 1); });
@@ -727,7 +740,7 @@ std::vector<std::string> parseFile(const string &fileName)
 
     const std::regex ws_re("\\s*;\\s*"); // whitespace
 
-    const std::regex a = std::regex("standard\\.output\\(\"([^\"]+)\"\\)");
+    const std::regex a = std::regex("println\\(\"([^\"]+)\"\\)");// or std::regex("standard\\.output\\(\"([^\"]+)\"\\)");
     
     auto b = std::sregex_token_iterator(text.begin(), text.end(), ws_re, -1);
     const std::sregex_token_iterator end;
@@ -737,7 +750,7 @@ std::vector<std::string> parseFile(const string &fileName)
     {
         const std::string statement = *b++;
         std::regex_match(statement, base_match, a);
-        std::cout << statement;
+        //std::cout << statement;
 
         if (base_match.size() == 2)
         {
@@ -746,15 +759,25 @@ std::vector<std::string> parseFile(const string &fileName)
             //std::cout << " has a base of " << base;
 			cout_content_list.push_back(base);
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
     }
 	return cout_content_list;
 }
 
 int main()
 {
-	std::vector<std::string> cout_content_list = parseFile("test.txt");
-	// std::cout << cout_content_list.at(0) << std::endl;
+	std::vector<std::string> cout_content_list = parseFile("main.hahahaha");
+
+	std::cout << cout_content_list.size() << std::endl;
+
+	EXE_STRING_TO_HEX_AND_ADDRESS exe_string_to_hex_and_address;
+
+	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(), [&exe_string_to_hex_and_address](const std::string& elem){
+		//std::cout << elem << std::endl;
+		exe_string_to_hex_and_address.convert_and_store(elem);
+	});
+
+
 
 	PEFile pe;
 	pe.New();
@@ -785,20 +808,22 @@ int main()
 	// 0xC3 // ret; Never reached
 
 // Number(iat_address_in_hex - next code line address _in_hex).toString(16)
+
+
 	std::vector<uint8_t> code = {
-		0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8
-		0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20
+		0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
+		0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20	// 32 bytes of shadow space
 		0xB9, 0xF5, 0xFF, 0xFF, 0xFF,							//	mov ecx, -0xb
 		0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, //403048		//	mov rax, 0x403048
 		0xFF, 0x10,												//	call [rax]
-		0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax
+		0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
 		0x48, 0x83, 0xC4, 0x20,									//	add rsp, 0x20
-		0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30
-		0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,				//	mov rcx, [rip+0xfec]
-		0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] 
+		0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
+		0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,				//	mov rcx, [rip+0xfec] // need to change
+		0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
 		0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
-		0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]
-		0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0
+		0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
+		0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0 // Number(0x402000 - 0x401033).toString(16)
 		0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
 		0xFF, 0x10,												//	call [rax]
 		0x48, 0x83, 0xC4, 0x30,									//	add rsp, 0x30
@@ -811,10 +836,15 @@ int main()
 	codeSection.Size = code.size();
 
 	int dataSectionIndex = pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
-	std::vector<uint8_t> data = {
-		0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34, 0x0D, 0x0A};
+
+	// std::vector<uint8_t> data = {
+	// 	0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34, 
+	// 	0x0D, 0x0A //\r\n
+	// };
+	
+
 	auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
-	memcpy(dataSection.RawData, data.data(), data.size());
+	memcpy(dataSection.RawData, exe_string_to_hex_and_address.hex_for_data_section.data(), exe_string_to_hex_and_address.hex_for_data_section.size());
 
 	std::cout << "!!!!b" << std::endl;
 
