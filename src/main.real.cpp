@@ -861,6 +861,7 @@ int main()
 	//
 	// 	0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
 	//*// 	0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
+
 	//*// 	0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
 	// 	0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0
 	// 	0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
@@ -879,10 +880,10 @@ int main()
 	};
 	/************************/
 
-	const ULONGLONG absolute_location_to_store_standard_handle = 0x402030;
 	const ULONGLONG text_starting = 0x401000;
 	const ULONGLONG data_starting = 0x402000;
 
+	uint_t i = 0;
 	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(),
 	[&](const std::string& elem){
 		std::vector<uint8_t> elem_code_1 = {	
@@ -894,7 +895,8 @@ int main()
 		};
 		code.insert(code.end(), elem_code_1.begin(), elem_code_1.end());
 
-		ULONGLONG relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - text_starting + code.size();
+		const ULONGLONG absolute_location_to_store_standard_handle = 0x402030;
+		ULONGLONG relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
 		std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
 
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
@@ -910,7 +912,7 @@ int main()
 		};
 		code.insert(code.end(), elem_code_2.begin(), elem_code_2.end());
 
-		relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - text_starting + code.size();
+		relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
 		std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
 		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
@@ -922,16 +924,53 @@ int main()
 		};
 		code.insert(code.end(), elem_code_3.begin(), elem_code_3.end());
 
-		ULONGLONG relative_location_to_store_element = data_starting - text_starting + code.size();
+		const ULONGLONG offset = std::accumulate(cout_content_list.begin(), cout_content_list.begin() + i, 0, [](int previous, const std::string& current)
+		{   
+			//return std::move(a) + '-' + std::to_string(b);
+			return previous + current.length() + 2;
+		});
+
+		ULONGLONG relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
 		std::cout << std::hex << relative_location_to_store_element << std::endl;
 		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_element));
 		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_element));
 		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_element));
 		code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_element));
 
-		
+		std::vector<uint8_t> elem_code_4 = {
+			0x41, 0xB8, 0x00, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
+		};
+		code.insert(code.end(), elem_code_4.begin(), elem_code_4.end());
 
-		0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
+		ULONGLONG elem_length_with_newline = elem.length() + 2;
+		code.at(code.size() - 4) = getFirst(_byteswap_ulong(elem_length_with_newline));
+		code.at(code.size() - 3) = getSecond(_byteswap_ulong(elem_length_with_newline));
+		code.at(code.size() - 2) = getThird(_byteswap_ulong(elem_length_with_newline));
+		code.at(code.size() - 1) = getForth(_byteswap_ulong(elem_length_with_newline));
+
+		std::vector<uint8_t> elem_code_5 = {
+			0x4C, 0x8D, 0x0D, 0x00, 0x00, 0x00, 0x00,						//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
+		};
+
+		code.insert(code.end(), elem_code_5.begin(), elem_code_5.end());
+
+		const ULONGLONG absolute_location_to_store_number_of_bytes_written = 0x402040;
+		relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
+		std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
+		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
+		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
+		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
+		code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
+
+
+		std::vector<uint8_t> elem_code_6 = {
+			0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0
+			0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
+			0xFF, 0x10,												//	call [rax]
+			0x48, 0x83, 0xC4, 0x30,									//	add rsp, 0x30
+		};
+		code.insert(code.end(), elem_code_6.begin(), elem_code_6.end());			
+		i++;
 	});
 
 	/************************/
