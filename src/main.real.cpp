@@ -731,6 +731,27 @@ string readFile(const string &fileName) {
 	return buffer.str();
 }
 
+#include <climits>
+
+template <typename T>
+T swap_endian(T u)
+{
+    static_assert (CHAR_BIT == 8, "CHAR_BIT != 8");
+
+    union
+    {
+        T u;
+        unsigned char u8[sizeof(T)];
+    } source, dest;
+
+    source.u = u;
+
+    for (size_t k = 0; k < sizeof(T); k++)
+        dest.u8[k] = source.u8[sizeof(T) - k - 1];
+
+    return dest.u;
+}
+
 std::vector<std::string> parseFile(const string &fileName)
 {
 	std::vector<std::string> cout_content_list;
@@ -764,6 +785,59 @@ std::vector<std::string> parseFile(const string &fileName)
 	return cout_content_list;
 }
 
+uint8_t getFirst(const unsigned long a) {
+	return (
+		a & (1 << 24) | 
+		a &  (1 << 25) | 
+		a &  (1 << 26) | 
+		a &  (1 << 27) | 
+		a &  (1 << 28) | 
+		a &  (1 << 29) | 
+		a &  (1 << 30) | 
+		a & (1 << 31)
+	)  >> 24;
+}
+
+uint8_t getSecond(const unsigned long a) {
+	return (
+		a & (1 << 16) | 
+		a &  (1 << 17) | 
+		a &  (1 << 18) | 
+		a &  (1 << 19) | 
+		a &  (1 << 20) | 
+		a &  (1 << 21) | 
+		a &  (1 << 22) | 
+		a & (1 << 23)
+	)  >> 16;
+}
+
+uint8_t getThird(const unsigned long a) {
+	return (
+		a & (1 << 8) | 
+		a &  (1 << 9) | 
+		a &  (1 << 10) | 
+		a &  (1 << 11) | 
+		a &  (1 << 12) | 
+		a &  (1 << 13) | 
+		a &  (1 << 14) | 
+		a & (1 << 15)
+	) >> 8;
+}
+
+
+uint8_t getForth(const unsigned long a) {
+	return (
+		a & (1 << 0) | 
+		a &  (1 << 1) | 
+		a &  (1 << 2) | 
+		a &  (1 << 3) | 
+		a &  (1 << 4) | 
+		a &  (1 << 5) | 
+		a &  (1 << 6) | 
+		a & (1 << 7)
+	) >> 0;
+}
+
 int main()
 {
 	std::vector<std::string> cout_content_list = parseFile("main.hahahaha");
@@ -772,11 +846,107 @@ int main()
 
 	EXE_STRING_TO_HEX_AND_ADDRESS exe_string_to_hex_and_address;
 
+
+	// std::vector<uint8_t> code = {
+	// 	0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
+	//
+	// 	0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20	// 32 bytes of shadow space
+	// 	0xB9, 0xF5, 0xFF, 0xFF, 0xFF,							//	mov ecx, -0xb
+	// 	0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, //403048		//	mov rax, 0x403048
+	// 	0xFF, 0x10,												//	call [rax]
+	// 	0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
+	// 	0x48, 0x83, 0xC4, 0x20,									//	add rsp, 0x20
+	// 	0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
+	// 	0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,				//	mov rcx, [rip+0xfec] // need to change
+	//
+	// 	0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
+	//*// 	0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
+	//*// 	0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
+	// 	0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0
+	// 	0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
+	// 	0xFF, 0x10,												//	call [rax]
+	// 	0x48, 0x83, 0xC4, 0x30,									//	add rsp, 0x30
+	//
+	//
+	//
+	// 	0x31, 0xC9,												//	xor ecx, ecx
+	// 	0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00,  //403058		//	mov rax, 0x403058
+	// 	0xFF, 0x10												//	call [rax]
+	// };
+
+	std::vector<uint8_t> code =  {
+		0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
+	};
+	/************************/
+
+	const ULONGLONG absolute_location_to_store_standard_handle = 0x402030;
+	const ULONGLONG text_starting = 0x401000;
+	const ULONGLONG data_starting = 0x402000;
+
+	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(),
+	[&](const std::string& elem){
+		std::vector<uint8_t> elem_code_1 = {	
+				0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20	// 32 bytes of shadow space
+				0xB9, 0xF5, 0xFF, 0xFF, 0xFF,							//	mov ecx, -0xb
+				0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, //403048		//	mov rax, 0x403048
+				0xFF, 0x10,												//	call [rax]
+				0x48, 0x89, 0x05, 0x00, 0x00, 0x00, 0x00//0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
+		};
+		code.insert(code.end(), elem_code_1.begin(), elem_code_1.end());
+
+		ULONGLONG relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - text_starting + code.size();
+		std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
+
+		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
+		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
+		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_standard_handle));
+		code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_standard_handle));
+
+
+		std::vector<uint8_t> elem_code_2 = {
+			0x48, 0x83, 0xC4, 0x20,									//	add rsp, 0x20
+			0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
+			0x48, 0x8B, 0x0D, 0x00, 0x00, 0x00, 0x00,				//	mov rcx, [rip+0xfec] // need to change
+		};
+		code.insert(code.end(), elem_code_2.begin(), elem_code_2.end());
+
+		relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - text_starting + code.size();
+		std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
+		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
+		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
+		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_standard_handle));
+		code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_standard_handle));
+
+		std::vector<uint8_t> elem_code_3 = {
+			0x48, 0x8D, 0x15, 0x00, 0x00, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
+		};
+		code.insert(code.end(), elem_code_3.begin(), elem_code_3.end());
+
+		ULONGLONG relative_location_to_store_element = data_starting - text_starting + code.size();
+		std::cout << std::hex << relative_location_to_store_element << std::endl;
+		code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_element));
+		code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_element));
+		code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_element));
+		code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_element));
+
+		
+
+		0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
+	});
+
+	/************************/
+	// exit
+	std::vector<uint8_t> exit = {
+		0x31, 0xC9,												//	xor ecx, ecx
+		0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00,  //403058		//	mov rax, 0x403058
+		0xFF, 0x10												//	call [rax]
+	};
+	code.insert(code.end(), exit.begin(), exit.end());
+
 	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(), [&exe_string_to_hex_and_address](const std::string& elem){
 		//std::cout << elem << std::endl;
 		exe_string_to_hex_and_address.convert_and_store(elem);
 	});
-
 
 
 	PEFile pe;
@@ -810,27 +980,9 @@ int main()
 // Number(iat_address_in_hex - next code line address _in_hex).toString(16)
 
 
-	std::vector<uint8_t> code = {
-		0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
-		0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20	// 32 bytes of shadow space
-		0xB9, 0xF5, 0xFF, 0xFF, 0xFF,							//	mov ecx, -0xb
-		0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, //403048		//	mov rax, 0x403048
-		0xFF, 0x10,												//	call [rax]
-		0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
-		0x48, 0x83, 0xC4, 0x20,									//	add rsp, 0x20
-		0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
-		0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,				//	mov rcx, [rip+0xfec] // need to change
-		0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
-		0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
-		0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
-		0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0 // Number(0x402000 - 0x401033).toString(16)
-		0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
-		0xFF, 0x10,												//	call [rax]
-		0x48, 0x83, 0xC4, 0x30,									//	add rsp, 0x30
-		0x31, 0xC9,												//	xor ecx, ecx
-		0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00,  //403058		//	mov rax, 0x403058
-		0xFF, 0x10												//	call [rax]
-	};
+
+
+
 
 	memcpy(codeSection.RawData, code.data(), code.size());
 	codeSection.Size = code.size();
