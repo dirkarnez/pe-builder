@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <numeric>
 #include <winnt.h>
-#include <iostream>
 #include <fstream>
 #include <cstdio>
 #include <cstring>
@@ -13,16 +12,8 @@
 #include <iterator>
 #include <filesystem>
 #include <string>
-#include <Windows.h>
-#include <winnt.h>
 #include <stdint.h>
 #include <math.h>
-#include <fstream>
-#include <iostream>
-#include <fstream>
-#include <iostream>
-#include <algorithm>
-#include <iterator>
 #include <regex>
 
 using namespace std;
@@ -561,9 +552,12 @@ int32_t PEFile::AddSection(std::string_view name, DWORD size, bool isExecutable)
 		this->m_ntHeaders64.OptionalHeader.BaseOfCode = this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint;
 		// std::cout << "!!!!isExecutable" << this->m_ntHeaders64.OptionalHeader.AddressOfEntryPoint << std::endl;
 	}
-
-	newSection.RawData = (int8_t *)GlobalAlloc(GMEM_FIXED | GMEM_ZEROINIT, sectionSize);
+	
+	newSection.RawData = (int8_t*)malloc(sizeof(int8_t*)*sectionSize);
+	memset(newSection.RawData, 0, sectionSize);
+	//newSection.RawData = (int8_t *)GlobalAlloc(GMEM_FIXED | GMEM_ZEROINIT, sectionSize);
 	newSection.Size = sectionSize;
+	//free(newSection.RawData);
 
 	m_ntHeaders64.FileHeader.NumberOfSections++;
 	// if (m_reservedData.Size > 0)
