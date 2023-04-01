@@ -41,7 +41,7 @@ jobs:
         # On Mac and Windows this leads to a conflict.
         run: |
           gcc --version
-          cmake -G"MinGW Makefiles"
+          cmake -G"MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
             
