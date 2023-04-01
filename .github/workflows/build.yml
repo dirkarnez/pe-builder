@@ -30,7 +30,7 @@ jobs:
         # We can't use `build` as `BUILD` is already taken by the bazel build file.
         # On Mac and Windows this leads to a conflict.
         run: |
-          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          cmake -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
             
       - name: Configure
@@ -40,7 +40,7 @@ jobs:
         # We can't use `build` as `BUILD` is already taken by the bazel build file.
         # On Mac and Windows this leads to a conflict.
         run: |
-          cmake -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
             
       - name: Configure
@@ -50,7 +50,7 @@ jobs:
         # We can't use `build` as `BUILD` is already taken by the bazel build file.
         # On Mac and Windows this leads to a conflict.
         run: |
-          cmake -G"MinGW Makefiles" \
+          cmake -DCMAKE_EXE_LINKER_FLAGS="-static" -G"MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
 
@@ -66,7 +66,7 @@ jobs:
           type: 'zip'
           path: "pe-builder"
           directory: "cmake-build"
-          filename: pe-builder-${{ github.ref_name }}-macos-gcc-12.2.0.zip
+          filename: pe-builder-${{ github.ref_name }}-macos-clang.zip
           
       - if: ${{ matrix.container == 'windows-latest' }}
         name: Archive Release for Windows
@@ -92,6 +92,6 @@ jobs:
           artifacts: |
             "cmake-build/pe-builder-${{ github.ref_name }}-mingw64-x86_64-posix-seh-11.2.0.zip"
             "cmake-build/pe-builder-${{ github.ref_name }}-ubuntu-gcc-11.3.0.zip"
-            "cmake-build/pe-builder-${{ github.ref_name }}-macos-gcc-12.2.0.zip"
+            "cmake-build/pe-builder-${{ github.ref_name }}-macos-clang.zip"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
