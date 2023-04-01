@@ -533,7 +533,10 @@ void PEFile::AddImport(std::string_view dllName, char **functions, int functionC
 	// Copy dll name and alloc it on the heap
 	size_t sizeOfName = dllName.length() + 1;
 	char *allocedName = new char[sizeOfName];
-	strcpy_s(allocedName, sizeOfName, dllName.data());
+	strncpy(allocedName, std::string(dllName).c_str() , sizeOfName);
+	
+	//strcpy_s(allocedName, sizeOfName, dllName.data());
+	
 	// strcpy(allocedName, dllName.data());
 	importDll->Name = allocedName;
 	importDll->Functions = new PE_IMPORT_FUNCTION_ENTRY();
