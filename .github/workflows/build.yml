@@ -86,12 +86,26 @@ jobs:
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-ubuntu-gcc-11.3.0.zip
           
-      - name: Release prebuilt
+      - if: ${{ matrix.container == 'windows-latest' }}
+        name: Release prebuilt
         uses: ncipollo/release-action@v1
         with:
-          artifacts: |
-            cmake-build/pe-builder-v1.0.0-macos-clang-14.0.0.14000029.zip
-            cmake-build/pe-builder-v1.0.0-mingw64-x86_64-posix-seh-11.2.0.zip
-            cmake-build/pe-builder-v1.0.0-ubuntu-gcc-11.3.0.zip
+          artifacts: cmake-build/pe-builder-v1.0.0-mingw64-x86_64-posix-seh-11.2.0.zip
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - if: ${{ matrix.container == 'macos-latest' }}
+        name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: cmake-build/pe-builder-v1.0.0-macos-clang-14.0.0.14000029.zip
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - if: ${{ matrix.container == 'ubuntu-latest' }}
+        name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: cmake-build/pe-builder-v1.0.0-ubuntu-gcc-11.3.0.zip
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
