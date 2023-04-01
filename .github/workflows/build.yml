@@ -1,0 +1,92 @@
+name: cpp-cmake-prebuilt-release-actions-workflow
+
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'c*'
+      
+jobs:
+  build:
+    strategy:
+      matrix:
+        container: [ ubuntu-latest, macos-latest, windows-latest ]
+        build_type: [ Release ]
+
+
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ${{ matrix.container }}
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - if: ${{ matrix.container != 'windows-latest' }}
+        name: Configure
+        shell: bash
+        # Configure CMake in a 'buildX' subdirectory.
+        # We can't use `build` as `BUILD` is already taken by the bazel build file.
+        # On Mac and Windows this leads to a conflict.
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -B./cmake-build
+            
+      - if: ${{ matrix.container == 'windows-latest' }}
+        name: Configure
+        shell: bash
+        # Configure CMake in a 'buildX' subdirectory.
+        # We can't use `build` as `BUILD` is already taken by the bazel build file.
+        # On Mac and Windows this leads to a conflict.
+        run: |
+          gcc --version
+          cmake -G"MinGW Makefiles"
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -B./cmake-build
+            
+#      - name: Build shared
+#        run: |
+#          cmake --build buildX --config ${{ matrix.build_type }}
+#      - name: Install shared
+#        run: |
+#          cmake --install buildX --config ${{ matrix.build_type }}
+
+      - name: Build and install static
+        run: |
+          cd cmake-build
+          cmake --build . --config ${{ matrix.build_type }}
+          
+      - if: ${{ matrix.container != 'windows-latest' }}
+        name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          path: "pe-builder"
+          directory: "cmake-build"
+          filename: pe-builder-${{ github.ref_name }}.zip
+        
+      - if: ${{ matrix.container == 'windows-latest' }}
+        name: Archive Release for Windows
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          path: "pe-builder.exe"
+          directory: "cmake-build"
+          filename: pe-builder-${{ github.ref_name }}-mingw64-x86_64-posix-seh-11.2.0.zip
+          
+      - if: ${{ matrix.container != 'windows-latest' }}
+        name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "cmake-build/pe-builder-${{ github.ref_name }}.zip"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - if: ${{ matrix.container == 'windows-latest' }}
+        name: Release prebuilt for Windows
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "cmake-build/pe-builder-${{ github.ref_name }}-mingw64-x86_64-posix-seh-11.2.0.zip"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
