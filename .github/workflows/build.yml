@@ -66,7 +66,7 @@ jobs:
           type: 'zip'
           path: "pe-builder"
           directory: "cmake-build"
-          filename: pe-builder-${{ github.ref_name }}-macos-clang.zip
+          filename: pe-builder-${{ github.ref_name }}-macos-clang-14.0.0.14000029.zip
           
       - if: ${{ matrix.container == 'windows-latest' }}
         name: Archive Release for Windows
@@ -89,9 +89,6 @@ jobs:
       - name: Release prebuilt
         uses: ncipollo/release-action@v1
         with:
-          artifacts: |
-            "cmake-build/pe-builder-${{ github.ref_name }}-mingw64-x86_64-posix-seh-11.2.0.zip"
-            "cmake-build/pe-builder-${{ github.ref_name }}-ubuntu-gcc-11.3.0.zip"
-            "cmake-build/pe-builder-${{ github.ref_name }}-macos-clang.zip"
+          artifacts: "cmake-build/*"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
