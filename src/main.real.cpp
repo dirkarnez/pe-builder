@@ -213,10 +213,10 @@ struct image_thunk_data64 {
 
 
 struct image_import_descriptor {
-    union {
-        unsigned long   Characteristics;            // 0 for terminating null import descriptor
+/*    union {
+        unsigned long   Characteristics;            // 0 for terminating null import descriptor*/
         unsigned long   OriginalFirstThunk;         // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
-    } DUMMYUNIONNAME;
+    /*} DUMMYUNIONNAME;*/
     unsigned long   TimeDateStamp;                  // 0 if not bound,
                                             // -1 if bound, and real date\time stamp
                                             //     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)
