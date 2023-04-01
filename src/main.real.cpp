@@ -705,7 +705,7 @@ bool PEFile::WritePadding(std::ofstream &file, long paddingSize)
 	{
 		return false;
 	}
-	delete padding;
+	delete[] padding;
 
 	return true;
 }
