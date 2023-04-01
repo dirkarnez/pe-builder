@@ -1703,7 +1703,6 @@ int main()
 
 	// Close PE File
 	// pe_writter.close();
-
-	cin.get();
+	
 	return EXIT_SUCCESS;
 }
