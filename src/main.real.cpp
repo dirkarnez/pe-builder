@@ -13,6 +13,51 @@
 #include <stdint.h>
 #include <math.h>
 #include <regex>
+#ifdef _MSC_VER
+
+#include <stdlib.h>
+#define bswap_32(x) _byteswap_ulong(x)
+#define bswap_64(x) _byteswap_uint64(x)
+
+#elif defined(__APPLE__)
+
+// Mac OS X / Darwin features
+#include <libkern/OSByteOrder.h>
+#define bswap_32(x) OSSwapInt32(x)
+#define bswap_64(x) OSSwapInt64(x)
+
+#elif defined(__sun) || defined(sun)
+
+#include <sys/byteorder.h>
+#define bswap_32(x) BSWAP_32(x)
+#define bswap_64(x) BSWAP_64(x)
+
+#elif defined(__FreeBSD__)
+
+#include <sys/endian.h>
+#define bswap_32(x) bswap32(x)
+#define bswap_64(x) bswap64(x)
+
+#elif defined(__OpenBSD__)
+
+#include <sys/types.h>
+#define bswap_32(x) swap32(x)
+#define bswap_64(x) swap64(x)
+
+#elif defined(__NetBSD__)
+
+#include <sys/types.h>
+#include <machine/bswap.h>
+#if defined(__BSWAP_RENAME) && !defined(__bswap_32)
+#define bswap_32(x) bswap32(x)
+#define bswap_64(x) bswap64(x)
+#endif
+
+#else
+
+#include <byteswap.h>
+
+#endif
 
 using namespace std;
 
@@ -1065,10 +1110,10 @@ int main()
 					  unsigned long long relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
 
-					  code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_standard_handle));
 
 					  std::vector<uint8_t> elem_code_2 = {
 						  0x48, 0x83, 0xC4, 0x20,					//	add rsp, 0x20
@@ -1079,10 +1124,10 @@ int main()
 
 					  relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
-					  code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_standard_handle));
+					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_standard_handle));
 
 					  std::vector<uint8_t> elem_code_3 = {
 						  0x48, 0x8D, 0x15, 0x00, 0x00, 0x00, 0x00, //	lea rdx, [rip+0xfcd] //
@@ -1096,10 +1141,10 @@ int main()
 
 					  unsigned long long relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_element << std::endl;
-					  code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_element));
-					  code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_element));
-					  code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_element));
-					  code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_element));
+					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_element));
+					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_element));
+					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_element));
+					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_element));
 
 					  std::vector<uint8_t> elem_code_4 = {
 						  0x41, 0xB8, 0x00, 0x00, 0x00, 0x00, //	mov r8d, 0x14
@@ -1107,10 +1152,10 @@ int main()
 					  code.insert(code.end(), elem_code_4.begin(), elem_code_4.end());
 
 					  unsigned long long elem_length_with_newline = elem.length() + 2;
-					  code.at(code.size() - 4) = getFirst(_byteswap_ulong(elem_length_with_newline));
-					  code.at(code.size() - 3) = getSecond(_byteswap_ulong(elem_length_with_newline));
-					  code.at(code.size() - 2) = getThird(_byteswap_ulong(elem_length_with_newline));
-					  code.at(code.size() - 1) = getForth(_byteswap_ulong(elem_length_with_newline));
+					  code.at(code.size() - 4) = getFirst(bswap_32(elem_length_with_newline));
+					  code.at(code.size() - 3) = getSecond(bswap_32(elem_length_with_newline));
+					  code.at(code.size() - 2) = getThird(bswap_32(elem_length_with_newline));
+					  code.at(code.size() - 1) = getForth(bswap_32(elem_length_with_newline));
 
 					  std::vector<uint8_t> elem_code_5 = {
 						  0x4C, 0x8D, 0x0D, 0x00, 0x00, 0x00, 0x00, //	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
