@@ -23,8 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - if: ${{ matrix.container != 'windows-latest' }}
-        name: Configure
+      - if: ${{ matrix.container == 'ubuntu-latest' }}
+        name: Configure ubuntu
         shell: bash
         # Configure CMake in a 'buildX' subdirectory.
         # We can't use `build` as `BUILD` is already taken by the bazel build file.
@@ -33,8 +33,18 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
             
+      - if: ${{ matrix.container == 'macos-latest' }}
+        name: Configure macos
+        shell: bash
+        # Configure CMake in a 'buildX' subdirectory.
+        # We can't use `build` as `BUILD` is already taken by the bazel build file.
+        # On Mac and Windows this leads to a conflict.
+        run: |
+          cmake -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -B./cmake-build
+            
       - if: ${{ matrix.container == 'windows-latest' }}
-        name: Configure
+        name: Configure windows
         shell: bash
         # Configure CMake in a 'buildX' subdirectory.
         # We can't use `build` as `BUILD` is already taken by the bazel build file.
@@ -44,15 +54,8 @@ jobs:
           cmake -G"MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
-            
-#      - name: Build shared
-#        run: |
-#          cmake --build buildX --config ${{ matrix.build_type }}
-#      - name: Install shared
-#        run: |
-#          cmake --install buildX --config ${{ matrix.build_type }}
 
-      - name: Build and install static
+      - name: cmake Build
         run: |
           cd cmake-build
           cmake --build . --config ${{ matrix.build_type }}
