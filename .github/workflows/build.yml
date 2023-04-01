@@ -41,7 +41,7 @@ jobs:
         # On Mac and Windows this leads to a conflict.
         run: |
           gcc-12 --version && \
-          cmake -DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc-12 -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++-12 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          cmake -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -B./cmake-build
             
       - if: ${{ matrix.container == 'windows-latest' }}
