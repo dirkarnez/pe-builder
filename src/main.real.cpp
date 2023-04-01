@@ -1166,10 +1166,10 @@ int main()
 					  const unsigned long long absolute_location_to_store_number_of_bytes_written = 0x402040;
 					  unsigned long long relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
-					  code.at(code.size() - 4) = getFirst(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
-					  code.at(code.size() - 3) = getSecond(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
-					  code.at(code.size() - 2) = getThird(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
-					  code.at(code.size() - 1) = getForth(_byteswap_ulong(relative_location_to_store_number_of_bytes_written));
+					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_number_of_bytes_written));
+					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_number_of_bytes_written));
+					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_number_of_bytes_written));
+					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_number_of_bytes_written));
 
 					  std::vector<uint8_t> elem_code_6 = {
 						  0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00, //	mov qword [rsp+0x20], 0x0
