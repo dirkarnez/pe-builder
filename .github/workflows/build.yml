@@ -67,7 +67,6 @@ jobs:
           .\pe-builder.exe
           
       - if: ${{ matrix.container != 'windows-latest' }} 
-        shell: bash
         run: |
           cd cmake-build && \
           echo 'println("hahahah");' > main.hahahaha && \
@@ -78,7 +77,9 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          path: "pe-builder"
+          path: |
+            pe-builder
+            main
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-macos-clang-14.0.0.14000029.zip
           
