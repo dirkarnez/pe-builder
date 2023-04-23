@@ -77,9 +77,6 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          path: |
-            pe-builder
-            main
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-macos-clang-14.0.0.14000029.zip
           
@@ -88,9 +85,6 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          path: |
-            pe-builder.exe
-            main.exe
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-mingw64-x86_64-posix-seh-11.2.0.zip
           
@@ -99,9 +93,6 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          path: |
-            pe-builder
-            main
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-ubuntu-gcc-11.3.0.zip
           
