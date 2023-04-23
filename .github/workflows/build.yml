@@ -59,6 +59,20 @@ jobs:
           cd cmake-build
           cmake --build . --config ${{ matrix.build_type }}
           
+      - if: ${{ matrix.container == 'windows-latest' }} 
+        shell: cmd
+        run: |
+          cd cmake-build &&^
+          echo println("hahahah"); > main.hahahaha &&^
+          .\pe-builder.exe
+          
+      - if: ${{ matrix.container != 'windows-latest' }} 
+        shell: bash
+        run: |
+          cd cmake-build && \
+          echo 'println("hahahah");' > main.hahahaha && \
+          .\pe-builder
+          
       - if: ${{ matrix.container == 'macos-latest' }}
         name: Archive Release for macOS
         uses: thedoctor0/zip-release@master
@@ -73,7 +87,9 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          path: "pe-builder.exe"
+          path: |
+            pe-builder.exe
+            main.exe
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-mingw64-x86_64-posix-seh-11.2.0.zip
           
@@ -82,7 +98,9 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           type: 'zip'
-          path: "pe-builder"
+          path: |
+            pe-builder
+            main
           directory: "cmake-build"
           filename: pe-builder-${{ github.ref_name }}-ubuntu-gcc-11.3.0.zip
           
