@@ -18,7 +18,7 @@
 // Function to swap a value from
 // big Endian to little Endian and
 // vice versa.
-unsigned long long bswap_32(unsigned long long value)
+uint64_t bswap_32(uint64_t value)
 {
  
     // This var holds the leftmost 8
@@ -229,27 +229,27 @@ struct image_section_header
 
 struct image_thunk_data64 {
     union {
-        unsigned long long ForwarderString;  // PBYTE 
-		unsigned long long Function;         // PDWORD
-		unsigned long long Ordinal;
-		unsigned long long AddressOfData;    // PIMAGE_IMPORT_BY_NAME
+        uint64_t ForwarderString;  // PBYTE 
+		uint64_t Function;         // PDWORD
+		uint64_t Ordinal;
+		uint64_t AddressOfData;    // PIMAGE_IMPORT_BY_NAME
     } u1;
 };
 
 
 struct image_import_descriptor {
 /*    union {
-        unsigned long   Characteristics;            // 0 for terminating null import descriptor*/
-        unsigned long   OriginalFirstThunk;         // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
+        uint32_t   Characteristics;            // 0 for terminating null import descriptor*/
+        uint32_t   OriginalFirstThunk;         // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
     /*} DUMMYUNIONNAME;*/
-    unsigned long   TimeDateStamp;                  // 0 if not bound,
+    uint32_t   TimeDateStamp;                  // 0 if not bound,
                                             // -1 if bound, and real date\time stamp
                                             //     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)
                                             // O.W. date/time stamp of DLL bound to (Old BIND)
 
-    unsigned long   ForwarderChain;                 // -1 if no forwarders
-    unsigned long   Name;
-    unsigned long   FirstThunk;                     // RVA to IAT (if bound this IAT has actual addresses)
+    uint32_t   ForwarderChain;                 // -1 if no forwarders
+    uint32_t   Name;
+    uint32_t   FirstThunk;                     // RVA to IAT (if bound this IAT has actual addresses)
 };
 
 enum class PEResult : uint32_t
@@ -301,21 +301,21 @@ struct PE_IMPORT_DLL_ENTRY
 
 struct PE_SECTION_ENTRY
 {
-	unsigned long Offset;
+	uint32_t Offset;
 	int8_t *RawData;
-	unsigned long Size;
+	uint32_t Size;
 };
 
 struct DLL_IAT_ADDRESS
 {
 	std::string dll_name;
-	std::map<std::string, unsigned long long> iat_map;
+	std::map<std::string, uint64_t> iat_map;
 };
 
 class EXE_STRING_TO_HEX_AND_ADDRESS
 {
 private:
-	std::map<std::string, unsigned long long> string_to_file_offset;
+	std::map<std::string, uint64_t> string_to_file_offset;
 
 public:
 	std::vector<uint8_t> hex_for_data_section;
@@ -346,9 +346,9 @@ private:
 public:
 	void New();
 	PEResult SaveToFile(std::filesystem::path filePath);
-	unsigned long GetFileAlignment();
+	uint32_t GetFileAlignment();
 	PE_SECTION_ENTRY GetSectionByIndex(int32_t index);
-	int32_t AddSection(std::string_view name, unsigned long size, bool isExecutable);
+	int32_t AddSection(std::string_view name, uint32_t size, bool isExecutable);
 	void AddImport(std::string_view dllName, char **functions, int functionCount);
 	void Commit();
 
@@ -372,13 +372,13 @@ private:
 	// PEResult ReadImports();
 
 	void BuildImportTable();
-	char *BuildAdditionalImports(unsigned long baseRVA);
-	unsigned long CalculateAdditionalImportsSize(unsigned long &sizeDlls, unsigned long &sizeFunctions, unsigned long &sizeStrings);
+	char *BuildAdditionalImports(uint32_t baseRVA);
+	uint32_t CalculateAdditionalImportsSize(uint32_t &sizeDlls, uint32_t &sizeFunctions, uint32_t &sizeStrings);
 
-	bool WritePadding(std::ofstream &file, long paddingSize);
-	unsigned long AlignNumber(unsigned long number, unsigned long alignment);
-	unsigned long RvaToOffset(unsigned long rva);
-	unsigned long OffsetToRVA(unsigned long offset);
+	bool WritePadding(std::ofstream &file, uint32_t paddingSize);
+	uint32_t AlignNumber(uint32_t number, uint32_t alignment);
+	uint32_t RvaToOffset(uint32_t rva);
+	uint32_t OffsetToRVA(uint32_t offset);
 
 	// void ComputeReservedData();
 	void ComputeHeaders();
@@ -415,7 +415,7 @@ void PEFile::Initialize()
 	memset(m_sectionTable, 0, sizeof(m_sectionTable));
 }
 
-unsigned long PEFile::GetFileAlignment()
+uint32_t PEFile::GetFileAlignment()
 {
 	return this->m_ntHeaders64.OptionalHeader.FileAlignment;
 }
@@ -582,10 +582,10 @@ void PEFile::BuildImportTable()
 {
 	// std::cout << "!!!!qwrew" << std::endl;
 	// Calculate new import size
-	unsigned long sizeDlls = 0;
-	unsigned long sizeFunctions = 0;
-	unsigned long sizeStrings = 0;
-	unsigned long newImportsSize = CalculateAdditionalImportsSize(sizeDlls, sizeFunctions, sizeStrings);
+	uint32_t sizeDlls = 0;
+	uint32_t sizeFunctions = 0;
+	uint32_t sizeStrings = 0;
+	uint32_t newImportsSize = CalculateAdditionalImportsSize(sizeDlls, sizeFunctions, sizeStrings);
 
 	// Calculate current import size
 	// DWORD currentImportDllsSize = 0;
@@ -620,7 +620,7 @@ void PEFile::BuildImportTable()
 	// std::cout << "!!!!iu" << std::endl;
 }
 
-char *PEFile::BuildAdditionalImports(unsigned long baseRVA)
+char *PEFile::BuildAdditionalImports(uint32_t  baseRVA)
 {
 	Commit();
 
@@ -629,13 +629,13 @@ char *PEFile::BuildAdditionalImports(unsigned long baseRVA)
 	PE_IMPORT_DLL_ENTRY *importDll;
 	PE_IMPORT_FUNCTION_ENTRY *importFunction;
 
-	unsigned long sizeDlls = 0;
-	unsigned long sizeFunctions = 0;
-	unsigned long sizeStrings = 0;
-	unsigned long newImportsSize = CalculateAdditionalImportsSize(sizeDlls, sizeFunctions, sizeStrings);
-	unsigned long offsetDlls = 0;
-	unsigned long offsetFunctions = sizeDlls;
-	unsigned long offsetStrings = sizeDlls + 2 * sizeFunctions;
+	uint32_t sizeDlls = 0;
+	uint32_t sizeFunctions = 0;
+	uint32_t sizeStrings = 0;
+	uint32_t newImportsSize = CalculateAdditionalImportsSize(sizeDlls, sizeFunctions, sizeStrings);
+	uint32_t offsetDlls = 0;
+	uint32_t offsetFunctions = sizeDlls;
+	uint32_t offsetStrings = sizeDlls + 2 * sizeFunctions;
 
 	char *buffer = new char[newImportsSize];
 	memset(buffer, 0, newImportsSize);
@@ -651,7 +651,7 @@ char *PEFile::BuildAdditionalImports(unsigned long baseRVA)
 
 		importDesc.Name = baseRVA + offsetStrings;
 		memcpy(buffer + offsetStrings, importDll->Name, strlen(importDll->Name));
-		offsetStrings += AlignNumber((unsigned long)strlen(importDll->Name) + 1, 2);
+		offsetStrings += AlignNumber((uint32_t)strlen(importDll->Name) + 1, 2);
 
 		memcpy(buffer + offsetDlls, &importDesc, sizeof(image_import_descriptor));
 		offsetDlls += sizeof(image_import_descriptor);
@@ -660,7 +660,7 @@ char *PEFile::BuildAdditionalImports(unsigned long baseRVA)
 		for (int i = 0; importFunction != nullptr; i++)
 		{
 			const auto function_name = string(importFunction->Name);
-			const auto iat_address = this->m_ntHeaders64.OptionalHeader.ImageBase + importDesc.FirstThunk + (i * sizeof(unsigned long long));
+			const auto iat_address = this->m_ntHeaders64.OptionalHeader.ImageBase + importDesc.FirstThunk + (i * sizeof(uint32_t));
 			dll_iat_address.iat_map[function_name] = iat_address;
 
 			// std::cout << "dll_iat_address.dll_name: " << dll_iat_address.dll_name << "function_name: " << function_name <<  "iat_address in (hex): " << std::hex << iat_address << std::endl;
@@ -674,7 +674,7 @@ char *PEFile::BuildAdditionalImports(unsigned long baseRVA)
 			{
 				importThunk.u1.AddressOfData = baseRVA + offsetStrings;
 				memcpy(buffer + offsetStrings + 2, importFunction->Name, strlen(importFunction->Name));
-				offsetStrings += 2 + AlignNumber((unsigned long)strlen(importFunction->Name) + 1, 2);
+				offsetStrings += 2 + AlignNumber((uint32_t)strlen(importFunction->Name) + 1, 2);
 			}
 
 			memcpy(buffer + offsetFunctions, &importThunk, sizeof(image_thunk_data64));
@@ -691,7 +691,7 @@ char *PEFile::BuildAdditionalImports(unsigned long baseRVA)
 	return buffer;
 }
 
-unsigned long PEFile::CalculateAdditionalImportsSize(unsigned long &sizeDlls, unsigned long &sizeFunctions, unsigned long &sizeStrings)
+uint32_t PEFile::CalculateAdditionalImportsSize(uint32_t &sizeDlls, uint32_t &sizeFunctions, uint32_t &sizeStrings)
 {
 	PE_IMPORT_DLL_ENTRY *importDll = &this->m_additionalImports;
 	PE_IMPORT_FUNCTION_ENTRY *importFunction;
@@ -700,14 +700,14 @@ unsigned long PEFile::CalculateAdditionalImportsSize(unsigned long &sizeDlls, un
 	while (importDll != nullptr)
 	{
 		sizeDlls += sizeof(image_import_descriptor);
-		sizeStrings += AlignNumber((unsigned long)strlen(importDll->Name) + 1, 2);
+		sizeStrings += AlignNumber((uint32_t)strlen(importDll->Name) + 1, 2);
 		importFunction = importDll->Functions;
 		while (importFunction != nullptr)
 		{
 			sizeFunctions += sizeof(image_thunk_data64);
 			if (importFunction->Id == 0)
 			{
-				sizeStrings += 2 + AlignNumber((unsigned long)strlen(importFunction->Name) + 1, 2);
+				sizeStrings += 2 + AlignNumber((uint32_t)strlen(importFunction->Name) + 1, 2);
 			}
 			importFunction = importFunction->Next;
 		}
@@ -719,7 +719,7 @@ unsigned long PEFile::CalculateAdditionalImportsSize(unsigned long &sizeDlls, un
 	return sizeDlls + 2 * sizeFunctions + sizeStrings;
 }
 
-bool PEFile::WritePadding(std::ofstream &file, long paddingSize)
+bool PEFile::WritePadding(std::ofstream &file, uint32_t paddingSize)
 {
 	if (paddingSize <= 0)
 		return false;
@@ -735,12 +735,12 @@ bool PEFile::WritePadding(std::ofstream &file, long paddingSize)
 	return true;
 }
 
-unsigned long PEFile::AlignNumber(unsigned long number, unsigned long alignment)
+uint32_t PEFile::AlignNumber(uint32_t number, uint32_t alignment)
 {
-	return (unsigned long)(ceil(number / (alignment + 0.0)) * alignment);
+	return (uint32_t)(ceil(number / (alignment + 0.0)) * alignment);
 }
 
-unsigned long PEFile::RvaToOffset(unsigned long rva)
+uint32_t PEFile::RvaToOffset(uint32_t rva)
 {
 	for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
 	{
@@ -753,7 +753,7 @@ unsigned long PEFile::RvaToOffset(unsigned long rva)
 	return 0;
 }
 
-int32_t PEFile::AddSection(std::string_view name, unsigned long size, bool isExecutable)
+int32_t PEFile::AddSection(std::string_view name, uint32_t size, bool isExecutable)
 {
 	// Return if max sections are reached
 	if (m_ntHeaders64.FileHeader.NumberOfSections == MAX_SECTIONS)
@@ -765,16 +765,16 @@ int32_t PEFile::AddSection(std::string_view name, unsigned long size, bool isExe
 	image_section_header &newSectionHeader = m_sectionTable[m_ntHeaders64.FileHeader.NumberOfSections];
 	image_section_header &lastSectionHeader = m_sectionTable[m_ntHeaders64.FileHeader.NumberOfSections - 1];
 
-	unsigned long sectionSize = AlignNumber(size, m_ntHeaders64.OptionalHeader.FileAlignment);
+	uint32_t sectionSize = AlignNumber(size, m_ntHeaders64.OptionalHeader.FileAlignment);
 	sectionSize = sectionSize > 0 ? sectionSize : m_ntHeaders64.OptionalHeader.FileAlignment;
 
-	unsigned long virtualSize = AlignNumber(sectionSize, m_ntHeaders64.OptionalHeader.SectionAlignment);
+	uint32_t virtualSize = AlignNumber(sectionSize, m_ntHeaders64.OptionalHeader.SectionAlignment);
 	virtualSize = virtualSize > 0 ? virtualSize : m_ntHeaders64.OptionalHeader.SectionAlignment;
 
-	unsigned long sectionOffset = AlignNumber(lastSectionHeader.PointerToRawData + lastSectionHeader.SizeOfRawData, m_ntHeaders64.OptionalHeader.FileAlignment);
+	uint32_t sectionOffset = AlignNumber(lastSectionHeader.PointerToRawData + lastSectionHeader.SizeOfRawData, m_ntHeaders64.OptionalHeader.FileAlignment);
 	sectionOffset = sectionOffset > 0 ? sectionOffset : m_ntHeaders64.OptionalHeader.FileAlignment;
 
-	unsigned long virtualOffset = AlignNumber(lastSectionHeader.VirtualAddress + lastSectionHeader.Misc.VirtualSize, m_ntHeaders64.OptionalHeader.SectionAlignment);
+	uint32_t virtualOffset = AlignNumber(lastSectionHeader.VirtualAddress + lastSectionHeader.Misc.VirtualSize, m_ntHeaders64.OptionalHeader.SectionAlignment);
 	virtualOffset = virtualOffset > 0 ? virtualOffset : m_ntHeaders64.OptionalHeader.SectionAlignment;
 
 	memset(&newSectionHeader, 0, sizeof(image_section_header));
@@ -810,7 +810,7 @@ int32_t PEFile::AddSection(std::string_view name, unsigned long size, bool isExe
 	return m_ntHeaders64.FileHeader.NumberOfSections - 1;
 }
 
-unsigned long PEFile::OffsetToRVA(unsigned long offset)
+uint32_t PEFile::OffsetToRVA(uint32_t offset)
 {
 	for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
 	{
@@ -867,7 +867,7 @@ void PEFile::ComputeHeaders()
 																 m_ntHeaders64.FileHeader.NumberOfSections * sizeof(image_section_header),
 															 m_ntHeaders64.OptionalHeader.FileAlignment);
 
-	unsigned long imageSize = m_ntHeaders64.OptionalHeader.SizeOfHeaders;
+	uint32_t imageSize = m_ntHeaders64.OptionalHeader.SizeOfHeaders;
 	for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
 	{
 		imageSize += AlignNumber(m_sectionTable[i].Misc.VirtualSize, m_ntHeaders64.OptionalHeader.SectionAlignment);
@@ -882,7 +882,7 @@ void PEFile::ComputeHeaders()
 void PEFile::ComputeSectionTable()
 {
 	// std::cout << "!!!!rr" << std::endl;
-	unsigned long offset = m_ntHeaders64.OptionalHeader.SizeOfHeaders;
+	uint32_t offset = m_ntHeaders64.OptionalHeader.SizeOfHeaders;
 	for (int i = 0; i < m_ntHeaders64.FileHeader.NumberOfSections; i++)
 	{
 		m_sectionTable[i].Characteristics |= 0x80000000; //IMAGE_SCN_MEM_WRITE;
@@ -1021,7 +1021,7 @@ std::vector<std::string> parseFile(const string &fileName)
 	return cout_content_list;
 }
 
-uint8_t getFirst(const unsigned long a)
+uint8_t getFirst(const uint32_t a)
 {
 	return (
 			   a & (1 << 24) |
@@ -1035,7 +1035,7 @@ uint8_t getFirst(const unsigned long a)
 		   24;
 }
 
-uint8_t getSecond(const unsigned long a)
+uint8_t getSecond(const uint32_t a)
 {
 	return (
 			   a & (1 << 16) |
@@ -1049,7 +1049,7 @@ uint8_t getSecond(const unsigned long a)
 		   16;
 }
 
-uint8_t getThird(const unsigned long a)
+uint8_t getThird(const uint32_t a)
 {
 	return (
 			   a & (1 << 8) |
@@ -1063,7 +1063,7 @@ uint8_t getThird(const unsigned long a)
 		   8;
 }
 
-uint8_t getForth(const unsigned long a)
+uint8_t getForth(const uint32_t a)
 {
 	return (
 			   a & (1 << 0) |
@@ -1118,8 +1118,8 @@ int main()
 	};
 	/************************/
 
-	const unsigned long long text_starting = 0x401000;
-	const unsigned long long data_starting = 0x402000;
+	const uint64_t text_starting = 0x401000;
+	const uint64_t data_starting = 0x402000;
 
 	uint8_t i = 0;
 	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(),
@@ -1134,8 +1134,8 @@ int main()
 					  };
 					  code.insert(code.end(), elem_code_1.begin(), elem_code_1.end());
 
-					  const unsigned long long absolute_location_to_store_standard_handle = 0x402030;
-					  unsigned long long relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
+					  const uint64_t absolute_location_to_store_standard_handle = 0x402030;
+					  uint64_t relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
 
 					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
@@ -1162,12 +1162,12 @@ int main()
 					  };
 					  code.insert(code.end(), elem_code_3.begin(), elem_code_3.end());
 
-					  const unsigned long long offset = std::accumulate(cout_content_list.begin(), cout_content_list.begin() + i, 0, [](int previous, const std::string &current)
+					  const uint64_t offset = std::accumulate(cout_content_list.begin(), cout_content_list.begin() + i, 0, [](int previous, const std::string &current)
 																		{   
 			//return std::move(a) + '-' + std::to_string(b);
 			return previous + current.length() + 2; });
 
-					  unsigned long long relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
+					  uint64_t relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_element << std::endl;
 					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_element));
 					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_element));
@@ -1179,7 +1179,7 @@ int main()
 					  };
 					  code.insert(code.end(), elem_code_4.begin(), elem_code_4.end());
 
-					  unsigned long long elem_length_with_newline = elem.length() + 2;
+					  uint64_t elem_length_with_newline = elem.length() + 2;
 					  code.at(code.size() - 4) = getFirst(bswap_32(elem_length_with_newline));
 					  code.at(code.size() - 3) = getSecond(bswap_32(elem_length_with_newline));
 					  code.at(code.size() - 2) = getThird(bswap_32(elem_length_with_newline));
@@ -1191,8 +1191,8 @@ int main()
 
 					  code.insert(code.end(), elem_code_5.begin(), elem_code_5.end());
 
-					  const unsigned long long absolute_location_to_store_number_of_bytes_written = 0x402040;
-					  unsigned long long relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
+					  const uint64_t absolute_location_to_store_number_of_bytes_written = 0x402040;
+					  uint64_t relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
 					  // std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
 					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_number_of_bytes_written));
 					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_number_of_bytes_written));
