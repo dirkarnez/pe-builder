@@ -1077,7 +1077,7 @@ uint8_t getForth(const uint32_t a)
 		   0;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	std::vector<std::string> cout_content_list = parseFile("main.hahahaha");
 
@@ -1267,8 +1267,9 @@ int main()
 	memcpy(dataSection.RawData, exe_string_to_hex_and_address.hex_for_data_section.data(), exe_string_to_hex_and_address.hex_for_data_section.size());
 
 	// std::cout << "!!!!b" << std::endl;
-
-	pe.SaveToFile("main.exe");
+	
+	std::string arg3(argv[3]);
+	pe.SaveToFile(arg3);
 
 	std::cout << "Compiled with 0 Errors." << std::endl;
 
