@@ -64,13 +64,13 @@ jobs:
         run: |
           cd cmake-build &&^
           echo println("hahahah"); > main.hahahaha &&^
-          .\pe-builder.exe
+          .\pe-builder.exe main.hahahaha -o main.exe
           
       - if: ${{ matrix.container != 'windows-latest' }} 
         run: |
           cd cmake-build && \
           echo 'println("hahahah");' > main.hahahaha && \
-          ./pe-builder
+          ./pe-builder main.hahahaha -o main
           
       - if: ${{ matrix.container == 'macos-latest' }}
         name: Archive Release for macOS
