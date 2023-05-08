@@ -70,7 +70,7 @@ jobs:
         run: |
           cd cmake-build && \
           echo 'println("hahahah");' > main.hahahaha && \
-          ./pe-builder main.hahahaha -o main
+          ./pe-builder main.hahahaha -o main.exe
           
       - if: ${{ matrix.container == 'macos-latest' }}
         name: Archive Release for macOS
