@@ -150,3 +150,4 @@ if((lookup_addr & IMAGE_ORDINAL_FLAG) == 0) { //if first bit is not 1
 
 ### TODOs
 - redo it simple C
+- https://github.com/microsoft/win32metadata
