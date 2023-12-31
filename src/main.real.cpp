@@ -1134,14 +1134,59 @@ std::string cpi(int registerN, unsigned char data) {
 	return str;
 }
 
+int checksum(std::string str_without_checksum) {
+	int sum = 0;
+
+	 for (size_t i = 0; i < str_without_checksum.length(); i += 2) {
+        std::string byteString = str_without_checksum.substr(i, 2);
+        int byteValue = std::stoi(byteString, nullptr, 16);
+
+        sum += byteValue;
+    }
+
+	return (~sum + 1) & 0xFF;
+}
+
+std::string generatecode0(std::string msg) {
+	std::string input(R""""(1000800005900D92)""""+ cpi(26, msg.length() + 2)  +  R""""(B107D9F70E94FA000C94)"""");
+
+	std::stringstream ss;
+    ss << std::hex << checksum(input);
+
+	return ":" + input + ss.str();
+}
+
+
 std::string generatecode(std::string msg) {
+
 	// :04 00 48640000 40
+
+	
 	std::stringstream ss;
 	ss  << std::hex << std::setfill('0'); 
 	 
-	ss << std::setw(2) <<  msg.length() + 2 << 0x02 << 0x0E << 
+	ss << std::setw(2) <<  msg.length() + 2 << std::setw(2) << 0x02 << std::setw(2) << 0x0E << std::setw(2) << 0x00;
+
+	for (char c : msg) {
+        ss << std::setw(2) << static_cast<int>(c);
+    }
 
 
+	ss << std::setw(2) << 0x00 << std::setw(2) << 0x00;
+
+
+	std::string str = ss.str();
+
+	 
+	ss << std::setw(2) << checksum(str);
+
+	str = ss.str();
+
+	std::transform(str.begin(), str.end(), str.begin(),
+				[](unsigned char c) { return std::toupper(c); });
+
+
+	return ":" + str;
 }
 
 void arduino_uno_lcd_print(std::filesystem::path filePath, std::string msg) {
@@ -1156,7 +1201,7 @@ std::string input(R""""(:100000000C9434000C9449000C9449000C94490061
 :100050000C9449000C9449000C9449000C944900FC
 :100060000C9449000C94490011241FBECFEFD8E036
 :10007000DEBFCDBF11E0A0E0B1E0EEE0F2E002C0F3
-:1000800005900D92)""""+ cpi(26, msg.length() + 2)  +  R""""(B107D9F70E94FA000C94A4
+)"""" + generatecode0(msg) + R""""(
 :1000900005010C940000982F907F9BB995B19E7F2D
 :1000A00095B995B19D7F95B995B1946095B995E055
 :1000B0009A95F1F7000095B19B7F95B9EFE8F1E0D3
