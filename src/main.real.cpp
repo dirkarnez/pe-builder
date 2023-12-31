@@ -8,8 +8,16 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
+#include <iostream>
+#include <string>
+#include <algorithm>
+#include <cctype>
 #include <iterator>
 #include <filesystem>
+#include <string>
+#include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <string>
 #include <stdint.h>
 #include <math.h>
@@ -1077,199 +1085,312 @@ uint8_t getForth(const uint32_t a)
 		   0;
 }
 
+bool ends_with(std::string const & value, std::string const & ending)
+{
+    return 
+		(!(ending.size() > value.size())) && 
+		std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
+int twosComplement(int num, int bits) {
+    if (num >= 0) {
+        return num;
+    } else {
+        return (1 << bits) + num;
+    }
+}
+
+
+
+/*
+    CPI Rd,K
+    0011 KKKK dddd KKKK
+*/
+std::string cpi(int registerN, unsigned char data) {
+    unsigned char code[] = {0x30, 0}; // {0b1110, 0, 0, 0}; binary form takes 4 element
+
+    code[0] = code[0] | (data >> 4);
+    code[1] = code[1] | ((registerN - 16) << 4) | (data & 0b1111);
+
+  	size_t size = sizeof(code) / sizeof(code[0]);
+
+	unsigned char reversed[] = {0, 0}; 
+	reversed[0] = code[1];
+	reversed[1] = code[0];
+
+
+
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    
+    for (size_t i = 0; i < size; ++i) {
+        ss << std::setw(2) << static_cast<unsigned int>(reversed[i]);
+    }
+    
+	std::string str = ss.str();
+	  // Convert the string to uppercase
+    std::transform(str.begin(), str.end(), str.begin(),
+                   [](unsigned char c) { return std::toupper(c); });
+	return str;
+}
+
+std::string generatecode(std::string msg) {
+	// :04 00 48640000 40
+	std::stringstream ss;
+	ss  << std::hex << std::setfill('0'); 
+	 
+	ss << std::setw(2) <<  msg.length() + 2 << 0x02 << 0x0E << 
+
+
+}
+
+void arduino_uno_lcd_print(std::filesystem::path filePath, std::string msg) {
+	std::cout << msg.length()  << std::endl;
+
+
+std::string input(R""""(:100000000C9434000C9449000C9449000C94490061
+:100010000C9449000C9449000C9449000C9449003C
+:100020000C9449000C9449000C9449000C9449002C
+:100030000C9449000C9449000C9449000C9449001C
+:100040000C9449000C9449000C9449000C9449000C
+:100050000C9449000C9449000C9449000C944900FC
+:100060000C9449000C94490011241FBECFEFD8E036
+:10007000DEBFCDBF11E0A0E0B1E0EEE0F2E002C0F3
+:1000800005900D92)""""+ cpi(26, msg.length() + 2)  +  R""""(B107D9F70E94FA000C94A4
+:1000900005010C940000982F907F9BB995B19E7F2D
+:1000A00095B995B19D7F95B995B1946095B995E055
+:1000B0009A95F1F7000095B19B7F95B9EFE8F1E0D3
+:1000C0003197F1F700C000008295807F8BB985B130
+:1000D000846085B9F5E0FA95F1F7000085B18B7F72
+:1000E00085B98FE891E00197F1F700C0000008950D
+:1000F000982F907F9BB995B1916095B995B19D7FEF
+:1001000095B995B1946095B995E09A95F1F700008D
+:1001100095B19B7F95B98295807F8BB985B18460BD
+:1001200085B985E08A95F1F7000085B18B7F85B9A7
+:100130008FE891E00197F1F700C0000008958FEF7C
+:100140008AB984B985B18B7F85B983E30E944B005E
+:1001500082E30E944B0088E20E944B008CE00E94E8
+:100160004B0081E00E944B008FE39FE10197F1F784
+:1001700000C0000086E00E944B000895CF93DF93FB
+:1001800000D000D0CDB7DEB790E8998390EC9A8389
+:1001900094E99B8394ED9C83E62FF0E0319721E076
+:1001A00030E02C0F3D1FE20FF31F9081890F81502B
+:1001B0000E944B008FE891E00197F1F700C000002A
+:1001C0000F900F900F900F90DF91CF9108950F93A4
+:1001D0001F93CF938C01C0E003C00E947800CF5FD3
+:1001E000F801EC0FF11D80818111F7CFCF911F91A4
+:1001F0000F9108950E949F0061E081E00E94BE007F
+:0E02000080E091E00E94E700FFCFF894FFCF6E
+)"""" +  generatecode(msg)  + R""""(
+:00000001FF
+)"""");
+
+    std::ofstream out(filePath);
+    out << input;
+    out.close();
+}
+
 int main(int argc, char* argv[])
 {
 	std::vector<std::string> cout_content_list = parseFile("main.hahahaha");
 
-	// std::cout << cout_content_list.size() << std::endl;
-
-	EXE_STRING_TO_HEX_AND_ADDRESS exe_string_to_hex_and_address;
-
-	// std::vector<uint8_t> code = {
-	// 	0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
-	//
-	// 	0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20	// 32 bytes of shadow space
-	// 	0xB9, 0xF5, 0xFF, 0xFF, 0xFF,							//	mov ecx, -0xb
-	// 	0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, //403048		//	mov rax, 0x403048
-	// 	0xFF, 0x10,												//	call [rax]
-	// 	0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
-	// 	0x48, 0x83, 0xC4, 0x20,									//	add rsp, 0x20
-	// 	0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
-	// 	0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,				//	mov rcx, [rip+0xfec] // need to change
-	//
-	// 	0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
-	//*// 	0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
-
-	//*// 	0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
-	// 	0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0
-	// 	0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
-	// 	0xFF, 0x10,												//	call [rax]
-	// 	0x48, 0x83, 0xC4, 0x30,									//	add rsp, 0x30
-	//
-	//
-	//
-	// 	0x31, 0xC9,												//	xor ecx, ecx
-	// 	0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00,  //403058		//	mov rax, 0x403058
-	// 	0xFF, 0x10												//	call [rax]
-	// };
-
-	std::vector<uint8_t> code = {
-		0x48, 0x83, 0xEC, 0x08, //	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
-	};
-	/************************/
-
-	const uint64_t text_starting = 0x401000;
-	const uint64_t data_starting = 0x402000;
-
-	uint8_t i = 0;
-	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(),
-				  [&](const std::string &elem)
-				  {
-					  std::vector<uint8_t> elem_code_1 = {
-						  0x48, 0x83, 0xEC, 0x20,					//	sub rsp, 0x20	// 32 bytes of shadow space
-						  0xB9, 0xF5, 0xFF, 0xFF, 0xFF,				//	mov ecx, -0xb
-						  0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, // 403048		//	mov rax, 0x403048
-						  0xFF, 0x10,								//	call [rax]
-						  0x48, 0x89, 0x05, 0x00, 0x00, 0x00, 0x00	// 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
-					  };
-					  code.insert(code.end(), elem_code_1.begin(), elem_code_1.end());
-
-					  const uint64_t absolute_location_to_store_standard_handle = 0x402030;
-					  uint64_t relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
-					  // std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
-
-					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_standard_handle));
-
-					  std::vector<uint8_t> elem_code_2 = {
-						  0x48, 0x83, 0xC4, 0x20,					//	add rsp, 0x20
-						  0x48, 0x83, 0xEC, 0x30,					//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
-						  0x48, 0x8B, 0x0D, 0x00, 0x00, 0x00, 0x00, //	mov rcx, [rip+0xfec] // need to change
-					  };
-					  code.insert(code.end(), elem_code_2.begin(), elem_code_2.end());
-
-					  relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
-					  // std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
-					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_standard_handle));
-					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_standard_handle));
-
-					  std::vector<uint8_t> elem_code_3 = {
-						  0x48, 0x8D, 0x15, 0x00, 0x00, 0x00, 0x00, //	lea rdx, [rip+0xfcd] //
-					  };
-					  code.insert(code.end(), elem_code_3.begin(), elem_code_3.end());
-
-					  const uint64_t offset = std::accumulate(cout_content_list.begin(), cout_content_list.begin() + i, 0, [](int previous, const std::string &current)
-																		{   
-			//return std::move(a) + '-' + std::to_string(b);
-			return previous + current.length() + 2; });
-
-					  uint64_t relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
-					  // std::cout << std::hex << relative_location_to_store_element << std::endl;
-					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_element));
-					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_element));
-					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_element));
-					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_element));
-
-					  std::vector<uint8_t> elem_code_4 = {
-						  0x41, 0xB8, 0x00, 0x00, 0x00, 0x00, //	mov r8d, 0x14
-					  };
-					  code.insert(code.end(), elem_code_4.begin(), elem_code_4.end());
-
-					  uint64_t elem_length_with_newline = elem.length() + 2;
-					  code.at(code.size() - 4) = getFirst(bswap_32(elem_length_with_newline));
-					  code.at(code.size() - 3) = getSecond(bswap_32(elem_length_with_newline));
-					  code.at(code.size() - 2) = getThird(bswap_32(elem_length_with_newline));
-					  code.at(code.size() - 1) = getForth(bswap_32(elem_length_with_newline));
-
-					  std::vector<uint8_t> elem_code_5 = {
-						  0x4C, 0x8D, 0x0D, 0x00, 0x00, 0x00, 0x00, //	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
-					  };
-
-					  code.insert(code.end(), elem_code_5.begin(), elem_code_5.end());
-
-					  const uint64_t absolute_location_to_store_number_of_bytes_written = 0x402040;
-					  uint64_t relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
-					  // std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
-					  code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_number_of_bytes_written));
-					  code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_number_of_bytes_written));
-					  code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_number_of_bytes_written));
-					  code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_number_of_bytes_written));
-
-					  std::vector<uint8_t> elem_code_6 = {
-						  0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00, //	mov qword [rsp+0x20], 0x0
-						  0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00,				// 403050		//	mov rax, 0x403050
-						  0xFF, 0x10,											//	call [rax]
-						  0x48, 0x83, 0xC4, 0x30,								//	add rsp, 0x30
-					  };
-					  code.insert(code.end(), elem_code_6.begin(), elem_code_6.end());
-					  i++;
-				  });
-
-	/************************/
-	// exit
-	std::vector<uint8_t> exit = {
-		0x31, 0xC9,								  //	xor ecx, ecx
-		0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00, // 403058		//	mov rax, 0x403058
-		0xFF, 0x10								  //	call [rax]
-	};
-	code.insert(code.end(), exit.begin(), exit.end());
-
-	std::for_each(cout_content_list.cbegin(), cout_content_list.cend(), [&exe_string_to_hex_and_address](const std::string &elem)
-				  {
-		//std::cout << elem << std::endl;
-		exe_string_to_hex_and_address.convert_and_store(elem); });
-
-	PEFile pe;
-	pe.New();
-
-	// Add the exported functions of your DLL
-	const char *functions[] = {"GetStdHandle", "WriteFile", "ExitProcess"};
-
-	// Add the import to the PE file
-	pe.AddImport("kernel32.dll", (char **)functions, 3);
-	// std::cout << "Added imports to PE file" << std::endl;
-
-	int textSectionIndex = pe.AddSection(TEXT_SECTION_NAME, pe.GetFileAlignment(), true);
-	// std::cout << "!!!!a" << std::endl;
-	auto codeSection = pe.GetSectionByIndex(textSectionIndex);
-
-	// std::cout << " sizeof(ULONGLONG)" << sizeof(ULONGLONG) << std::endl;
-
-	// 0x48, 0x83, 0xC4, 0x48,					  // add rsp, 0x48; Stack unwind
-	// 0x48, 0x31, 0xC9,						  // xor rcx, rcx; hWnd
-	// 0x48, 0xC7, 0xC2, 0x10, 0x20, 0x40, 0x00, // mov rdx, Message(0x402010) (offset 10)
-	// 0x49, 0xC7, 0xC0, 0x00, 0x20, 0x40, 0x00, // mov r8, Title(0x402000) (offset 17)
-	// 0x4D, 0x31, 0xC9,						  // xor r9, r9; MB_OK
-	// 0x48, 0xC7, 0xC0, 0x5C, 0x30, 0x40, 0x00, // mov rax, MessageBoxA address(0x40305c) (offset 27)
-	// 0xFF, 0x10,								  // call[rax]; MessageBoxA(hWnd, Message, Title, MB_OK)
-	// // 0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
-	// // 0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
-	// // 0xFF, 0x10,					// call[rax]; ExitProcess(0)
-	// 0xC3 // ret; Never reached
-
-	// Number(iat_address_in_hex - next code line address _in_hex).toString(16)
-
-	memcpy(codeSection.RawData, code.data(), code.size());
-	codeSection.Size = code.size();
-
-	int dataSectionIndex = pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
-
-	// std::vector<uint8_t> data = {
-	// 	0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34,
-	// 	0x0D, 0x0A //\r\n
-	// };
-
-	auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
-	memcpy(dataSection.RawData, exe_string_to_hex_and_address.hex_for_data_section.data(), exe_string_to_hex_and_address.hex_for_data_section.size());
-
-	// std::cout << "!!!!b" << std::endl;
-	
 	std::string arg3(argv[3]);
-	pe.SaveToFile(arg3);
+
+	if (ends_with(arg3, ".exe")) {
+
+		// std::cout << cout_content_list.size() << std::endl;
+
+		EXE_STRING_TO_HEX_AND_ADDRESS exe_string_to_hex_and_address;
+
+		// std::vector<uint8_t> code = {
+		// 	0x48, 0x83, 0xEC, 0x08, 								//	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
+		//
+		// 	0x48, 0x83, 0xEC, 0x20,									//	sub rsp, 0x20	// 32 bytes of shadow space
+		// 	0xB9, 0xF5, 0xFF, 0xFF, 0xFF,							//	mov ecx, -0xb
+		// 	0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, //403048		//	mov rax, 0x403048
+		// 	0xFF, 0x10,												//	call [rax]
+		// 	0x48, 0x89, 0x05, 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
+		// 	0x48, 0x83, 0xC4, 0x20,									//	add rsp, 0x20
+		// 	0x48, 0x83, 0xEC, 0x30,									//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
+		// 	0x48, 0x8B, 0x0D, 0xEC, 0x0F, 0x00, 0x00,				//	mov rcx, [rip+0xfec] // need to change
+		//
+		// 	0x48, 0x8D, 0x15, 0xCD, 0x0F, 0x00, 0x00,				//	lea rdx, [rip+0xfcd] //
+		//*// 	0x41, 0xB8, 0x14, 0x00, 0x00, 0x00,						//	mov r8d, 0x14
+
+		//*// 	0x4C, 0x8D, 0x0D, 0xE0, 0x0F, 0x00, 0x00,				//	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
+		// 	0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,	//	mov qword [rsp+0x20], 0x0
+		// 	0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00, //403050		//	mov rax, 0x403050
+		// 	0xFF, 0x10,												//	call [rax]
+		// 	0x48, 0x83, 0xC4, 0x30,									//	add rsp, 0x30
+		//
+		//
+		//
+		// 	0x31, 0xC9,												//	xor ecx, ecx
+		// 	0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00,  //403058		//	mov rax, 0x403058
+		// 	0xFF, 0x10												//	call [rax]
+		// };
+
+		std::vector<uint8_t> code = {
+			0x48, 0x83, 0xEC, 0x08, //	sub rsp, 0x8	// Align the stack to a multiple of 16 bytes
+		};
+		/************************/
+
+		const uint64_t text_starting = 0x401000;
+		const uint64_t data_starting = 0x402000;
+
+		uint8_t i = 0;
+		std::for_each(cout_content_list.cbegin(), cout_content_list.cend(),
+					[&](const std::string &elem)
+					{
+						std::vector<uint8_t> elem_code_1 = {
+							0x48, 0x83, 0xEC, 0x20,					//	sub rsp, 0x20	// 32 bytes of shadow space
+							0xB9, 0xF5, 0xFF, 0xFF, 0xFF,				//	mov ecx, -0xb
+							0x48, 0xC7, 0xC0, 0x48, 0x30, 0x40, 0x00, // 403048		//	mov rax, 0x403048
+							0xFF, 0x10,								//	call [rax]
+							0x48, 0x89, 0x05, 0x00, 0x00, 0x00, 0x00	// 0xFB, 0x0F, 0x00, 0x00,				//	mov [rip+0xffb], rax // need to change
+						};
+						code.insert(code.end(), elem_code_1.begin(), elem_code_1.end());
+
+						const uint64_t absolute_location_to_store_standard_handle = 0x402030;
+						uint64_t relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
+						// std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
+
+						code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
+						code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_standard_handle));
+						code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_standard_handle));
+						code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_standard_handle));
+
+						std::vector<uint8_t> elem_code_2 = {
+							0x48, 0x83, 0xC4, 0x20,					//	add rsp, 0x20
+							0x48, 0x83, 0xEC, 0x30,					//	sub rsp, 0x30 	// Shadow space + 5th parameter + align stack
+							0x48, 0x8B, 0x0D, 0x00, 0x00, 0x00, 0x00, //	mov rcx, [rip+0xfec] // need to change
+						};
+						code.insert(code.end(), elem_code_2.begin(), elem_code_2.end());
+
+						relative_location_to_store_standard_handle = absolute_location_to_store_standard_handle - (text_starting + code.size());
+						// std::cout << std::hex << relative_location_to_store_standard_handle << std::endl;
+						code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_standard_handle));
+						code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_standard_handle));
+						code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_standard_handle));
+						code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_standard_handle));
+
+						std::vector<uint8_t> elem_code_3 = {
+							0x48, 0x8D, 0x15, 0x00, 0x00, 0x00, 0x00, //	lea rdx, [rip+0xfcd] //
+						};
+						code.insert(code.end(), elem_code_3.begin(), elem_code_3.end());
+
+						const uint64_t offset = std::accumulate(cout_content_list.begin(), cout_content_list.begin() + i, 0, [](int previous, const std::string &current)
+																			{   
+				//return std::move(a) + '-' + std::to_string(b);
+				return previous + current.length() + 2; });
+
+						uint64_t relative_location_to_store_element = (data_starting + offset) - (text_starting + code.size());
+						// std::cout << std::hex << relative_location_to_store_element << std::endl;
+						code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_element));
+						code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_element));
+						code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_element));
+						code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_element));
+
+						std::vector<uint8_t> elem_code_4 = {
+							0x41, 0xB8, 0x00, 0x00, 0x00, 0x00, //	mov r8d, 0x14
+						};
+						code.insert(code.end(), elem_code_4.begin(), elem_code_4.end());
+
+						uint64_t elem_length_with_newline = elem.length() + 2;
+						code.at(code.size() - 4) = getFirst(bswap_32(elem_length_with_newline));
+						code.at(code.size() - 3) = getSecond(bswap_32(elem_length_with_newline));
+						code.at(code.size() - 2) = getThird(bswap_32(elem_length_with_newline));
+						code.at(code.size() - 1) = getForth(bswap_32(elem_length_with_newline));
+
+						std::vector<uint8_t> elem_code_5 = {
+							0x4C, 0x8D, 0x0D, 0x00, 0x00, 0x00, 0x00, //	lea r9, [rip+0xfe0]	// Number(0x402000 - 0x401033).toString(16)
+						};
+
+						code.insert(code.end(), elem_code_5.begin(), elem_code_5.end());
+
+						const uint64_t absolute_location_to_store_number_of_bytes_written = 0x402040;
+						uint64_t relative_location_to_store_number_of_bytes_written = absolute_location_to_store_number_of_bytes_written - (text_starting + code.size());
+						// std::cout << std::hex << relative_location_to_store_number_of_bytes_written << std::endl;
+						code.at(code.size() - 4) = getFirst(bswap_32(relative_location_to_store_number_of_bytes_written));
+						code.at(code.size() - 3) = getSecond(bswap_32(relative_location_to_store_number_of_bytes_written));
+						code.at(code.size() - 2) = getThird(bswap_32(relative_location_to_store_number_of_bytes_written));
+						code.at(code.size() - 1) = getForth(bswap_32(relative_location_to_store_number_of_bytes_written));
+
+						std::vector<uint8_t> elem_code_6 = {
+							0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00, //	mov qword [rsp+0x20], 0x0
+							0x48, 0xC7, 0xC0, 0x50, 0x30, 0x40, 0x00,				// 403050		//	mov rax, 0x403050
+							0xFF, 0x10,											//	call [rax]
+							0x48, 0x83, 0xC4, 0x30,								//	add rsp, 0x30
+						};
+						code.insert(code.end(), elem_code_6.begin(), elem_code_6.end());
+						i++;
+					});
+
+		/************************/
+		// exit
+		std::vector<uint8_t> exit = {
+			0x31, 0xC9,								  //	xor ecx, ecx
+			0x48, 0xC7, 0xC0, 0x58, 0x30, 0x40, 0x00, // 403058		//	mov rax, 0x403058
+			0xFF, 0x10								  //	call [rax]
+		};
+		code.insert(code.end(), exit.begin(), exit.end());
+
+		std::for_each(cout_content_list.cbegin(), cout_content_list.cend(), [&exe_string_to_hex_and_address](const std::string &elem)
+					{
+			//std::cout << elem << std::endl;
+			exe_string_to_hex_and_address.convert_and_store(elem); });
+
+		PEFile pe;
+		pe.New();
+
+		// Add the exported functions of your DLL
+		const char *functions[] = {"GetStdHandle", "WriteFile", "ExitProcess"};
+
+		// Add the import to the PE file
+		pe.AddImport("kernel32.dll", (char **)functions, 3);
+		// std::cout << "Added imports to PE file" << std::endl;
+
+		int textSectionIndex = pe.AddSection(TEXT_SECTION_NAME, pe.GetFileAlignment(), true);
+		// std::cout << "!!!!a" << std::endl;
+		auto codeSection = pe.GetSectionByIndex(textSectionIndex);
+
+		// std::cout << " sizeof(ULONGLONG)" << sizeof(ULONGLONG) << std::endl;
+
+		// 0x48, 0x83, 0xC4, 0x48,					  // add rsp, 0x48; Stack unwind
+		// 0x48, 0x31, 0xC9,						  // xor rcx, rcx; hWnd
+		// 0x48, 0xC7, 0xC2, 0x10, 0x20, 0x40, 0x00, // mov rdx, Message(0x402010) (offset 10)
+		// 0x49, 0xC7, 0xC0, 0x00, 0x20, 0x40, 0x00, // mov r8, Title(0x402000) (offset 17)
+		// 0x4D, 0x31, 0xC9,						  // xor r9, r9; MB_OK
+		// 0x48, 0xC7, 0xC0, 0x5C, 0x30, 0x40, 0x00, // mov rax, MessageBoxA address(0x40305c) (offset 27)
+		// 0xFF, 0x10,								  // call[rax]; MessageBoxA(hWnd, Message, Title, MB_OK)
+		// // 0x48, 0x31, 0xC9,				// xor rcx, rcx; exit value
+		// // 0x48, 0xC7, 0xC0,       0x6C, 0x30, 0x40, 0x00,	// mov rax, ExitProcess address (0x40306c)
+		// // 0xFF, 0x10,					// call[rax]; ExitProcess(0)
+		// 0xC3 // ret; Never reached
+
+		// Number(iat_address_in_hex - next code line address _in_hex).toString(16)
+
+		memcpy(codeSection.RawData, code.data(), code.size());
+		codeSection.Size = code.size();
+
+		int dataSectionIndex = pe.AddSection(DATA_SECTION_NAME, pe.GetFileAlignment(), false);
+
+		// std::vector<uint8_t> data = {
+		// 	0x43, 0x6F, 0x6E, 0x73, 0x6F, 0x6C, 0x65, 0x20, 0x4D, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x20, 0x36, 0x34,
+		// 	0x0D, 0x0A //\r\n
+		// };
+
+		auto dataSection = pe.GetSectionByIndex(dataSectionIndex);
+		memcpy(dataSection.RawData, exe_string_to_hex_and_address.hex_for_data_section.data(), exe_string_to_hex_and_address.hex_for_data_section.size());
+
+		// std::cout << "!!!!b" << std::endl;
+	
+		pe.SaveToFile(arg3);
+	} else if (ends_with(arg3, ".hex")) {
+		std::cout << "ends with hex." << std::endl;
+		arduino_uno_lcd_print(arg3, cout_content_list.at(0));
+	}
+
 
 	std::cout << "Compiled with 0 Errors." << std::endl;
 
